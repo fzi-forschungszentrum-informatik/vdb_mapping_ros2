@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(vdb_mapping REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(std_srvs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -23,16 +24,13 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   tf2
   tf2_ros
   vdb_mapping
+  std_srvs
 )
 
 add_executable(vdb_mapping_ros_node src/vdb_mapping_ros_node.cpp)
 
 target_link_libraries(vdb_mapping_ros_node vdb_mapping::vdb_mapping)
 ament_target_dependencies(vdb_mapping_ros_node ${THIS_PACKAGE_INCLUDE_DEPENDS})
-
-#ament_target_dependencies(vdb_mapping_ros_node
-  #rclcpp
-  #vdb_mapping)
 
 install(TARGETS
   vdb_mapping_ros_node

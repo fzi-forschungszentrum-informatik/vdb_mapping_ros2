@@ -32,6 +32,8 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <std_srvs/srv/trigger.hpp>
+
 template <typename VDBMappingT>
 class VDBMappingROS2 : public rclcpp::Node
 {
@@ -106,7 +108,9 @@ public:
    * \param res result of the map reset
    * \returns result of map reset
    */
-  // bool mapResetCallback(std_srvs::TriggerRequest&, std_srvs::TriggerResponse& res);
+  bool mapResetCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+                        const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+
   /*!
    * \brief Callback for dynamic reconfigure of parameters
    *
@@ -158,7 +162,7 @@ private:
   /*!
    * \brief Service for reset map
    */
-  // ros::ServiceServer m_map_reset_service;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr m_map_reset_service;
   /*!
    * \brief Service for dynamic reconfigure of parameters
    */

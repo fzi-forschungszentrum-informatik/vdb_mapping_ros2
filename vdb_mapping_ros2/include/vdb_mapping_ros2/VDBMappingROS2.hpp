@@ -81,6 +81,10 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
   this->declare_parameter<std::string>("aligned_points", "");
   this->get_parameter("aligned_points", aligned_points_topic);
 
+  m_map_reset_service = this->create_service<std_srvs::srv::Trigger>(
+    "vdb_map_reset",
+    std::bind(
+      &VDBMappingROS2::mapResetCallback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 template <typename VDBMappingT>
@@ -90,4 +94,15 @@ void VDBMappingROS2<VDBMappingT>::resetMap()
   m_vdb_map->resetMap();
 
   // publishMap();
+}
+
+template <typename VDBMappingT>
+bool VDBMappingROS2<VDBMappingT>::mapResetCallback(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+  const std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+  resetMap();
+  res->success = true;
+  res->message = "Reset map successful.";
+  return true;
 }
