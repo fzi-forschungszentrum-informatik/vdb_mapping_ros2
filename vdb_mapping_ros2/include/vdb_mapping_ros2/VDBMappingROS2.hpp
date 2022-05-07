@@ -87,7 +87,7 @@ template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::resetMap()
 {
   RCLCPP_INFO(this->get_logger(), "Resetting Map");
-  // m_vdb_map->resetMap();
+  m_vdb_map->resetMap();
 
   // publishMap();
 }
