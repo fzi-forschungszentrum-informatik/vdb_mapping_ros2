@@ -28,6 +28,8 @@ template <typename VDBMappingT>
 VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
   : Node("vdb_mapping_ros2")
 {
+  using namespace std::placeholders;
+
   std::cout << "hi im a constructor" << std::endl;
   m_tf_buffer   = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   m_tf_listener = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer);
@@ -82,9 +84,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
   this->get_parameter("aligned_points", aligned_points_topic);
 
   m_map_reset_service = this->create_service<std_srvs::srv::Trigger>(
-    "vdb_map_reset",
-    std::bind(
-      &VDBMappingROS2::mapResetCallback, this, std::placeholders::_1, std::placeholders::_2));
+    "~/vdb_map_reset", std::bind(&VDBMappingROS2::mapResetCallback, this, _1, _2));
 }
 
 template <typename VDBMappingT>
