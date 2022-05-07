@@ -8,11 +8,12 @@ int main(int argc, char* argv[])
 {
   rclcpp::init(argc, argv);
   std::cout << "well hello there" << std::endl;
-  VDBMappingROS2<vdb_mapping::OccupancyVDBMapping> vdb_mapping;
-  rclcpp::spin(std::make_shared<VDBMappingROS2<vdb_mapping::OccupancyVDBMapping>>());
-  std::cout << "dafuq1" << std::endl;
-  //vdb_mapping.resetMap();
-  std::cout << "dafuq2" << std::endl;
+  std::shared_ptr<VDBMappingROS2<vdb_mapping::OccupancyVDBMapping> > vdb_mapping =
+    std::make_shared<VDBMappingROS2<vdb_mapping::OccupancyVDBMapping> >();
+
+  vdb_mapping->resetMap();
+
+  rclcpp::spin(vdb_mapping);
 
   rclcpp::shutdown();
   return 0;
