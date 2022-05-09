@@ -23,8 +23,8 @@
  *
  */
 //----------------------------------------------------------------------
-#ifndef VDB_MAPPING_ROS2_VDBMAPPINGROS2_H_INCLUDED
-#define VDB_MAPPING_ROS2_VDBMAPPINGROS2_H_INCLUDED
+#ifndef VDB_MAPPING_ROS2_VDBMAPPINGROS2_HPP_INCLUDED
+#define VDB_MAPPING_ROS2_VDBMAPPINGROS2_HPP_INCLUDED
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -218,5 +218,5 @@ private:
 };
 
 
-#include "VDBMappingROS2.hpp"
-#endif /* VDB_MAPPING_ROS22_VDBMAPPINGROS2_H_INCLUDED */
+#include "VDBMappingROS2_impl.hpp"
+#endif /* VDB_MAPPING_ROS22_VDBMAPPINGROS2_HPP_INCLUDED */
