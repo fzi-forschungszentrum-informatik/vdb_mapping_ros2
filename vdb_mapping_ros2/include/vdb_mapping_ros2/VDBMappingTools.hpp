@@ -69,4 +69,4 @@ public:
   static std_msgs::msg::ColorRGBA heightColorCoding(const double height);
 };
 #include "VDBMappingTools_impl.hpp"
-#endif /* VDB_MAPPING_ROS2_VDBMAPPINGTOOLS_H_INCLUDED */d
+#endif /* VDB_MAPPING_ROS2_VDBMAPPINGTOOLS_H_INCLUDED */

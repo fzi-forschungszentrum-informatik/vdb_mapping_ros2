@@ -11,8 +11,6 @@ int main(int argc, char* argv[])
   std::shared_ptr<VDBMappingROS2<vdb_mapping::OccupancyVDBMapping> > vdb_mapping =
     std::make_shared<VDBMappingROS2<vdb_mapping::OccupancyVDBMapping> >();
 
-  vdb_mapping->resetMap();
-
   rclcpp::spin(vdb_mapping);
 
   rclcpp::shutdown();
