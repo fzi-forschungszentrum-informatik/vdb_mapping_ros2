@@ -29,10 +29,20 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <tf2/exceptions.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <vdb_mapping_interfaces/srv/load_map.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+
+#define BOOST_BIND_NO_PLACEHOLDERS
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/common/transforms.h>
 
 template <typename VDBMappingT>
 class VDBMappingROS2 : public rclcpp::Node
@@ -51,12 +61,13 @@ public:
   /*!
    * \brief Saves the current map
    */
-  // bool saveMap(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
+  bool saveMap(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+               const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
   /*!
    * \brief Load stored map
    */
-  // bool loadMap(vdb_mapping_msgs::LoadMap::Request& req, vdb_mapping_msgs::LoadMap::Response&
-  // res);
+  bool loadMap(const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Request> req,
+               const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Response> res);
   /*!
    * \brief Sensor callback for scan aligned Pointclouds
    * In contrast to the normal sensor callback here an additional sensor frame has to be specified
@@ -64,13 +75,13 @@ public:
    *
    * \param msg PointCloud message
    */
-  // void alignedCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg);
+  void alignedCloudCallback(const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg);
   /*!
    * \brief Sensor callback for raw pointclouds. All data will be transformed into the map frame.
    *
    * \param msg
    */
-  // void sensorCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg);
+  void sensorCloudCallback(const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg);
   /*!
    * \brief Integrating the transformed pointcloud and sensor origins into the core mapping library
    *
@@ -78,37 +89,37 @@ public:
    * \param cloud Point cloud transformed into map coordinates
    * \param tf Sensor transform in map coordinates
    */
-  // void insertPointCloud(const typename VDBMappingT::PointCloudT::Ptr cloud,
-  // const geometry_msgs::TransformStamped transform);
+  void insertPointCloud(const typename VDBMappingT::PointCloudT::Ptr cloud,
+                        const geometry_msgs::msg::TransformStamped transform);
   /*!
    * \brief Publishes a marker array and pointcloud representation of the map
    */
-  // void publishMap() const;
+  void publishMap() const;
   /*!
    * \brief Publishes a grid update as compressed serialized string
    *
    * \param update Update grid
    */
-  // void publishUpdate(const typename VDBMappingT::UpdateGridT::Ptr update) const;
+  void publishUpdate(const typename VDBMappingT::UpdateGridT::Ptr update) const;
   /*!
    * \brief Listens to map updates and creats a map from these
    *
    * \param update_msg Single map update from a remote mapping instance
    */
-  // void mapUpdateCallback(const std_msgs::String::ConstPtr& update_msg);
+  void mapUpdateCallback(const std::shared_ptr<std_msgs::msg::String> update_msg);
   /*!
    * \brief Returns a pointer to the map
    *
    * \returns VDB grid pointer
    */
-  // const typename VDBMappingT::GridT::Ptr getMap();
+  const typename VDBMappingT::GridT::Ptr getMap();
   /*!
    * \brief Callback for map reset service call
    *
    * \param res result of the map reset
    * \returns result of map reset
    */
-  bool mapResetCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+  bool resetMapCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                         const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
   /*!
@@ -120,49 +131,41 @@ public:
 
 private:
   /*!
-   * \brief Public node handle
-   */
-  // ros::NodeHandle m_nh;
-  /*!
-   * \brief Private node handle
-   */
-  // ros::NodeHandle m_priv_nh;
-  /*!
    * \brief Subscriber for raw pointclouds
    */
-  // ros::Subscriber m_sensor_cloud_sub;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_sensor_cloud_sub;
   /*!
    * \brief Subscriber for scan aligned pointclouds
    */
-  // ros::Subscriber m_aligned_cloud_sub;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_aligned_cloud_sub;
   /*!
    * \brief Subscriber for map updates
    */
-  // ros::Subscriber m_map_update_sub;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr m_map_update_sub;
   /*!
    * \brief Publisher for the marker array
    */
-  // ros::Publisher m_visualization_marker_pub;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_visualization_marker_pub;
   /*!
    * \brief Publisher for the point cloud
    */
-  // ros::Publisher m_pointcloud_pub;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr m_pointcloud_pub;
   /*!
    * \brief Publisher map updates
    */
-  // ros::Publisher m_map_update_pub;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_map_update_pub;
   /*!
    * \brief Saves map in specified path from parameter server
    */
-  // ros::ServiceServer m_save_map_service_server;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr m_save_map_service;
   /*!
    * \brief Loads a map from specified path from service
    */
-  // ros::ServiceServer m_load_map_service_server;
+  rclcpp::Service<vdb_mapping_interfaces::srv::LoadMap>::SharedPtr m_load_map_service;
   /*!
    * \brief Service for reset map
    */
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr m_map_reset_service;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr m_reset_map_service;
   /*!
    * \brief Service for dynamic reconfigure of parameters
    */

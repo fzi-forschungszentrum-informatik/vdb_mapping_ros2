@@ -8,10 +8,16 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(vdb_mapping REQUIRED)
-find_package(tf2 REQUIRED)
-find_package(tf2_ros REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(vdb_mapping REQUIRED)
+find_package(vdb_mapping_interfaces REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(pcl_conversions REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -21,15 +27,24 @@ include_directories(include)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   rclcpp
+  sensor_msgs
+  std_msgs
+  std_srvs
   tf2
+  tf2_eigen
   tf2_ros
   vdb_mapping
-  std_srvs
+  vdb_mapping_interfaces
+  visualization_msgs
+  pcl_conversions
 )
 
 add_executable(vdb_mapping_ros_node src/vdb_mapping_ros_node.cpp)
 
-target_link_libraries(vdb_mapping_ros_node vdb_mapping::vdb_mapping)
+target_link_libraries(vdb_mapping_ros_node
+  vdb_mapping::vdb_mapping
+)
+
 ament_target_dependencies(vdb_mapping_ros_node ${THIS_PACKAGE_INCLUDE_DEPENDS})
 
 install(TARGETS

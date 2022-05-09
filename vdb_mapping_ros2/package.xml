@@ -14,10 +14,17 @@
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <depend>rclcpp</depend>
-  <depend>vdb_mapping</depend>
-  <depend>tf2</depend>
-  <depend>tf2_ros</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>std_srvs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_ros</depend>
+  <depend>vdb_mapping</depend>
+  <depend>vdb_mapping_interfaces</depend>
+  <depend>visualization_msgs</depend>
+  <depend>pcl_conversions</depend>
+
 
 
   <export>
