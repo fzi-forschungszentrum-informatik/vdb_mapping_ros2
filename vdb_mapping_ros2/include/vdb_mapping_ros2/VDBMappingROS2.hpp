@@ -44,6 +44,8 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/common/transforms.h>
 
+#include <vdb_mapping_ros2/VDBMappingTools.hpp>
+
 template <typename VDBMappingT>
 class VDBMappingROS2 : public rclcpp::Node
 {

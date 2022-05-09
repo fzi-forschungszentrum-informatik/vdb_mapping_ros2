@@ -116,8 +116,7 @@ void VDBMappingROS2<VDBMappingT>::resetMap()
 {
   RCLCPP_INFO(this->get_logger(), "Resetting Map");
   m_vdb_map->resetMap();
-  // TODO
-  // publishMap();
+  publishMap();
 }
 
 template <typename VDBMappingT>
@@ -150,7 +149,7 @@ bool VDBMappingROS2<VDBMappingT>::loadMap(
 {
   RCLCPP_INFO(this->get_logger(), "Loading Map");
   bool success = m_vdb_map->loadMap(req->path);
-  // publishMap();
+  publishMap();
   res->success = success;
   return success;
 }
@@ -188,7 +187,7 @@ void VDBMappingROS2<VDBMappingT>::mapUpdateCallback(
   typename VDBMappingT::UpdateGridT::Ptr update_grid =
     openvdb::gridPtrCast<typename VDBMappingT::UpdateGridT>(grids->front());
   m_vdb_map->updateMap(update_grid);
-  // publishMap();
+  publishMap();
 }
 
 template <typename VDBMappingT>
@@ -278,7 +277,7 @@ void VDBMappingROS2<VDBMappingT>::insertPointCloud(
   {
     publishUpdate(update);
   }
-  // publishMap();
+  publishMap();
 }
 
 template <typename VDBMappingT>
@@ -290,25 +289,27 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
   }
   typename VDBMappingT::GridT::Ptr grid = m_vdb_map->getMap();
   // TODO is there a ros 2 Version of this?
-  //bool publish_vis_marker;
-  //publish_vis_marker = (m_publish_vis_marker && m_visualization_marker_pub->getNumSubscribers() > 0);
-  //bool publish_pointcloud;
-  //publish_pointcloud = (m_publish_pointcloud && m_pointcloud_pub->getNumSubscribers() > 0);
+  // bool publish_vis_marker;
+  // publish_vis_marker = (m_publish_vis_marker && m_visualization_marker_pub->getNumSubscribers() >
+  // 0); bool publish_pointcloud; publish_pointcloud = (m_publish_pointcloud &&
+  // m_pointcloud_pub->getNumSubscribers() > 0);
 
   visualization_msgs::msg::Marker visualization_marker_msg;
   sensor_msgs::msg::PointCloud2 cloud_msg;
-  //VDBMappingTools<VDBMappingT>::createMappingOutput(m_vdb_map->getMap(),
-                                                    //m_map_frame,
-                                                    //visualization_marker_msg,
-                                                    //cloud_msg,
-                                                    //publish_vis_marker,
-                                                    //publish_pointcloud);
+  VDBMappingTools<VDBMappingT>::createMappingOutput(m_vdb_map->getMap(),
+                                                    m_map_frame,
+                                                    visualization_marker_msg,
+                                                    cloud_msg,
+                                                    m_publish_vis_marker,
+                                                    m_publish_pointcloud);
   if (m_publish_vis_marker)
   {
+    visualization_marker_msg.header.stamp = this->now();
     m_visualization_marker_pub->publish(visualization_marker_msg);
   }
   if (m_publish_pointcloud)
   {
+    cloud_msg.header.stamp = this->now();
     m_pointcloud_pub->publish(cloud_msg);
   }
 }
