@@ -37,14 +37,25 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <vdb_mapping_interfaces/srv/get_map_section.hpp>
 #include <vdb_mapping_interfaces/srv/load_map.hpp>
+#include <vdb_mapping_interfaces/srv/trigger_map_section_update.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
 #define BOOST_BIND_NO_PLACEHOLDERS
-#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/common/transforms.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 #include <vdb_mapping_ros2/VDBMappingTools.hpp>
+
+struct RemoteSource
+{
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr map_update_sub;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr map_overwrite_sub;
+  rclcpp::Client<vdb_mapping_interfaces::srv::GetMapSection>::SharedPtr get_map_section_client;
+  bool apply_remote_updates;
+  bool apply_remote_overwrites;
+};
 
 template <typename VDBMappingT>
 class VDBMappingROS2 : public rclcpp::Node
@@ -98,23 +109,26 @@ public:
    */
   void publishMap() const;
   /*!
-   * \brief Publishes a grid update as compressed serialized string
-   *
-   * \param update Update grid
-   */
-  void publishUpdate(const typename VDBMappingT::UpdateGridT::Ptr update) const;
-  /*!
    * \brief Listens to map updates and creats a map from these
    *
    * \param update_msg Single map update from a remote mapping instance
    */
   void mapUpdateCallback(const std::shared_ptr<std_msgs::msg::String> update_msg);
+
+  /*!
+   * \brief Listens to map overwrites and creates a map from these
+   *
+   * \param update_msg Single map overwrite from a remote mapping instance
+   */
+  void mapOverwriteCallback(const std::shared_ptr<std_msgs::msg::String> update_msg);
+
   /*!
    * \brief Returns a pointer to the map
    *
    * \returns VDB grid pointer
    */
   const typename VDBMappingT::GridT::Ptr getMap();
+
   /*!
    * \brief Callback for map reset service call
    *
@@ -123,6 +137,67 @@ public:
    */
   bool resetMapCallback(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                         const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+
+  /*!
+   * \brief Callback for requesting parts of the map
+   *
+   * \param req Coordinates and reference of the map section
+   * \param res Result of section request, which includes the returned map
+   *
+   * \returns Result of section request
+   */
+  bool getMapSectionCallback(
+    const std::shared_ptr<vdb_mapping_interfaces::srv::GetMapSection::Request> req,
+    const std::shared_ptr<vdb_mapping_interfaces::srv::GetMapSection::Response> res);
+
+  /*!
+   * \brief Callback for triggering a map section request on a remote source
+   *
+   * \param req Coordinates, reference frame and remote source identifier of the map section
+   * \param res Result of triggering section request
+   *
+   * \returns Result of triggering section request
+   */
+  bool triggerMapSectionUpdateCallback(
+    const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Request> req,
+    const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Response> res);
+
+  /*!
+   * \brief Creates a compressed Bitstream as ROS2 msg from an input grid
+   *
+   * \param update Update grid
+   *
+   * \returns bitstream
+   */
+  std_msgs::msg::String gridToMsg(const typename VDBMappingT::UpdateGridT::Ptr update) const;
+
+  /*!
+   * \brief Creates a compressed Bitstream as string from an input grid
+   *
+   * \param update Update grid
+   *
+   * \returns bitstream
+   */
+  std::string gridToStr(const typename VDBMappingT::UpdateGridT::Ptr update) const;
+
+  /*!
+   * \brief Unpacks an update grid from a compressed bitstream
+   *
+   * \param msg Compressed Bitstream
+   *
+   * \returns Update Grid
+   */
+  typename VDBMappingT::UpdateGridT::Ptr
+  msgToGrid(const std_msgs::msg::String::ConstPtr& msg) const;
+
+  /*!
+   * \brief Unpacks an update grid from a ROS2 msg
+   *
+   * \param msg Compressed Bitstream as ROS2 msg
+   *
+   * \returns Update Grid
+   */
+  typename VDBMappingT::UpdateGridT::Ptr strToGrid(const std::string& msg) const;
 
   /*!
    * \brief Callback for dynamic reconfigure of parameters
@@ -141,10 +216,6 @@ private:
    */
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_aligned_cloud_sub;
   /*!
-   * \brief Subscriber for map updates
-   */
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr m_map_update_sub;
-  /*!
    * \brief Publisher for the marker array
    */
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_visualization_marker_pub;
@@ -153,9 +224,13 @@ private:
    */
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr m_pointcloud_pub;
   /*!
-   * \brief Publisher map updates
+   * \brief Publisher for map updates
    */
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_map_update_pub;
+  /*!
+   * \brief Publisher for map overwrites
+   */
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_map_overwrite_pub;
   /*!
    * \brief Saves map in specified path from parameter server
    */
@@ -171,6 +246,15 @@ private:
   /*!
    * \brief Service for dynamic reconfigure of parameters
    */
+  /*!
+   * \brief Service for map section requests
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::GetMapSection>::SharedPtr m_get_map_section_service;
+  /*!
+   * \brief Service for triggering the map section request on a remote source
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>::SharedPtr
+    m_trigger_map_section_update_service;
   // dynamic_reconfigure::Server<vdb_mapping_ros::VDBMappingROSConfig>
   // m_dynamic_reconfigure_service;
   /*!
@@ -214,9 +298,21 @@ private:
    */
   bool m_publish_updates;
   /*!
-   * \brief Specifies if the node runs in normal or remote mapping mode
+   * \brief Specifies whether the mapping publishes map overwrites for remote use
    */
-  bool m_remote_mode;
+  bool m_publish_overwrites;
+  /*!
+   * \brief Specifies whether the mapping applies raw sensor data
+   */
+  bool m_apply_raw_sensor_data;
+  /*!
+   * \brief Specifies whether the data reduction is enabled
+   */
+  bool m_reduce_data;
+  /*!
+   * \brief Map of remote mapping source connections
+   */
+  std::map<std::string, RemoteSource> m_remote_sources;
 };
 
 

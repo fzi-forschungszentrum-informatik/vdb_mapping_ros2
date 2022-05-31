@@ -1,0 +1,23 @@
+aligned_points: scan_matched_points2
+raw_points: raw_points
+sensor_frame: velodyne
+map_frame: map
+max_range: 10.0
+resolution: 0.07
+prob_hit: 0.8
+prob_miss: 0.1
+thres_min: 0.12
+thres_max: 0.8
+publish_pointcloud: true
+publish_vis_marker: true
+publish_updates: false
+publish_overwrites: false
+apply_raw_sensor_data: false
+reduce_data: false
+map_save_dir: ""
+
+remote_sources: [vdb_mapping]
+vdb_mapping:
+  namespace: vdb_mapping
+  apply_remote_updates: false
+  apply_remote_overwrites: true
