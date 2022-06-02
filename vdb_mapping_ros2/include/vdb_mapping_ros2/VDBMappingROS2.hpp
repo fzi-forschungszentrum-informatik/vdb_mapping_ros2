@@ -188,7 +188,7 @@ public:
    * \returns Update Grid
    */
   typename VDBMappingT::UpdateGridT::Ptr
-  msgToGrid(const std_msgs::msg::String::ConstPtr& msg) const;
+  msgToGrid(const std::shared_ptr<std_msgs::msg::String> msg) const;
 
   /*!
    * \brief Unpacks an update grid from a ROS2 msg

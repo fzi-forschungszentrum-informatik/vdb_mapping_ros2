@@ -311,7 +311,7 @@ VDBMappingROS2<VDBMappingT>::gridToStr(const typename VDBMappingT::UpdateGridT::
 
 template <typename VDBMappingT>
 typename VDBMappingT::UpdateGridT::Ptr
-VDBMappingROS2<VDBMappingT>::msgToGrid(const std_msgs::msg::String::ConstPtr& msg) const
+VDBMappingROS2<VDBMappingT>::msgToGrid(const std::shared_ptr<std_msgs::msg::String> msg) const
 {
   return strToGrid(msg->data);
 }
