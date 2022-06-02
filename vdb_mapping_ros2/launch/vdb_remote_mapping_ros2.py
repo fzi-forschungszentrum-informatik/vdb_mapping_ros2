@@ -9,13 +9,13 @@ def generate_launch_description():
     config = os.path.join(
             get_package_share_directory('vdb_mapping_ros2'),
             'config',
-            'vdb_params.yaml'
+            'vdb_remote_params.yaml'
             )
 
     vdb_mapping = Node(
         package='vdb_mapping_ros2',
         executable='vdb_mapping_ros_node',
-        name='vdb_mapping',
+        name='vdb_remote_mapping',
         parameters = [config]
     )
 

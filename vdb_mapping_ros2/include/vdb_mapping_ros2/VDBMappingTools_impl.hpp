@@ -22,7 +22,6 @@
  *
  */
 //----------------------------------------------------------------------
-//#include <vdb_mapping_ros/VDBMappingTools.h>
 template <typename VDBMappingT>
 void VDBMappingTools<VDBMappingT>::createMappingOutput(const typename VDBMappingT::GridT::Ptr grid,
                                                        const std::string& frame_id,
@@ -36,8 +35,8 @@ void VDBMappingTools<VDBMappingT>::createMappingOutput(const typename VDBMapping
   double min_z, max_z;
   openvdb::Vec3d min_world_coord = grid->indexToWorld(bbox.getStart());
   openvdb::Vec3d max_world_coord = grid->indexToWorld(bbox.getEnd());
-  min_z = min_world_coord.z();
-  max_z = max_world_coord.z();
+  min_z                          = min_world_coord.z();
+  max_z                          = max_world_coord.z();
   for (typename VDBMappingT::GridT::ValueOnCIter iter = grid->cbeginValueOn(); iter; ++iter)
   {
     openvdb::Vec3d world_coord = grid->indexToWorld(iter.getCoord());
@@ -60,9 +59,9 @@ void VDBMappingTools<VDBMappingT>::createMappingOutput(const typename VDBMapping
   }
   if (create_marker)
   {
-    double size                   = grid->transform().voxelSize()[0];
-    marker_msg.header.frame_id    = frame_id;
-    //marker_msg.header.stamp       = ros::Time::now();
+    double size                = grid->transform().voxelSize()[0];
+    marker_msg.header.frame_id = frame_id;
+    // marker_msg.header.stamp       = ros::Time::now();
     marker_msg.id                 = 0;
     marker_msg.type               = visualization_msgs::msg::Marker::CUBE_LIST;
     marker_msg.scale.x            = size;
@@ -86,7 +85,7 @@ void VDBMappingTools<VDBMappingT>::createMappingOutput(const typename VDBMapping
     cloud->height = 1;
     pcl::toROSMsg(*cloud, cloud_msg);
     cloud_msg.header.frame_id = frame_id;
-    //cloud_msg.header.stamp    = ros::Time::now();
+    // cloud_msg.header.stamp    = ros::Time::now();
   }
 }
 // Conversion from Hue to RGB Value
@@ -96,7 +95,7 @@ std_msgs::msg::ColorRGBA VDBMappingTools<VDBMappingT>::heightColorCoding(const d
   // The factor of 0.8 is only for a nicer color range
   double h = height * 0.8;
   int i    = (int)(h * 6.0);
-  double f = (h* 6.0) - i;
+  double f = (h * 6.0) - i;
   double q = (1.0 - f);
   i %= 6;
   auto toMsg = [](double v1, double v2, double v3) {
