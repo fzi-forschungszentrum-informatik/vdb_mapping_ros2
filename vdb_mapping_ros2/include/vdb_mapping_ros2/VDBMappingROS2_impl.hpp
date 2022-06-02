@@ -117,14 +117,14 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
   for (auto& source_id : source_ids)
   {
     std::string remote_namespace;
-    this->declare_parameter<std::string>(source_id + "/namespace", "");
-    this->get_parameter(source_id + "/namespace", remote_namespace);
+    this->declare_parameter<std::string>(source_id + ".namespace", "");
+    this->get_parameter(source_id + ".namespace", remote_namespace);
 
     RemoteSource remote_source;
-    this->declare_parameter<bool>(source_id + "/apply_remote_updates", false);
-    this->get_parameter(source_id + "/apply_remote_updates", remote_source.apply_remote_updates);
-    this->declare_parameter<bool>(source_id + "/apply_remote_overwrites", false);
-    this->get_parameter(source_id + "/apply_remote_overwrites",
+    this->declare_parameter<bool>(source_id + ".apply_remote_updates", false);
+    this->get_parameter(source_id + ".apply_remote_updates", remote_source.apply_remote_updates);
+    this->declare_parameter<bool>(source_id + ".apply_remote_overwrites", false);
+    this->get_parameter(source_id + ".apply_remote_overwrites",
                         remote_source.apply_remote_overwrites);
     if (remote_source.apply_remote_updates)
     {
