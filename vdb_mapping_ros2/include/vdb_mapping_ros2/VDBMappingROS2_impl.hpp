@@ -146,7 +146,6 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
     m_remote_sources.insert(std::make_pair(source_id, remote_source));
   }
 
-  // if (!m_remote_mode)
   if (m_publish_updates)
   {
     m_map_update_pub = this->create_publisher<std_msgs::msg::String>("vdb_map_updates", 1);
@@ -458,12 +457,11 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
     return;
   }
   typename VDBMappingT::GridT::Ptr grid = m_vdb_map->getMap();
-  // TODO is there a ros 2 Version of this?
-  // TODO yes there is in node-> or this->
-  // bool publish_vis_marker;
-  // publish_vis_marker = (m_publish_vis_marker && m_visualization_marker_pub->getNumSubscribers() >
-  // 0); bool publish_pointcloud; publish_pointcloud = (m_publish_pointcloud &&
-  // m_pointcloud_pub->getNumSubscribers() > 0);
+  bool publish_vis_marker;
+  publish_vis_marker =
+    (m_publish_vis_marker && this->count_subscribers("vdb_map_visualization") > 0);
+  bool publish_pointcloud;
+  publish_pointcloud = (m_publish_pointcloud && this->count_subscribers("vdb_map_pointcloud") > 0);
 
   visualization_msgs::msg::Marker visualization_marker_msg;
   sensor_msgs::msg::PointCloud2 cloud_msg;
@@ -473,12 +471,12 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
                                                     cloud_msg,
                                                     m_publish_vis_marker,
                                                     m_publish_pointcloud);
-  if (m_publish_vis_marker)
+  if (publish_vis_marker)
   {
     visualization_marker_msg.header.stamp = this->now();
     m_visualization_marker_pub->publish(visualization_marker_msg);
   }
-  if (m_publish_pointcloud)
+  if (publish_pointcloud)
   {
     cloud_msg.header.stamp = this->now();
     m_pointcloud_pub->publish(cloud_msg);
