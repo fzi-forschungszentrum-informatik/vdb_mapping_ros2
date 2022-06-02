@@ -104,9 +104,9 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
       "~/trigger_map_section_update",
       std::bind(&VDBMappingROS2::triggerMapSectionUpdateCallback, this, _1, _2));
 
-  m_pointcloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("vdb_map_pointcloud", 1);
+  m_pointcloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("~/vdb_map_pointcloud", 1);
   m_visualization_marker_pub =
-    this->create_publisher<visualization_msgs::msg::Marker>("vdb_map_visualization", 1);
+    this->create_publisher<visualization_msgs::msg::Marker>("~/vdb_map_visualization", 1);
 
 
   // Setting up remote sources
@@ -148,11 +148,11 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
 
   if (m_publish_updates)
   {
-    m_map_update_pub = this->create_publisher<std_msgs::msg::String>("vdb_map_updates", 1);
+    m_map_update_pub = this->create_publisher<std_msgs::msg::String>("~/vdb_map_updates", 1);
   }
   if (m_publish_overwrites)
   {
-    m_map_overwrite_pub = this->create_publisher<std_msgs::msg::String>("vdb_map_overwrites", 1);
+    m_map_overwrite_pub = this->create_publisher<std_msgs::msg::String>("~/vdb_map_overwrites", 1);
   }
   if (m_apply_raw_sensor_data)
   {
@@ -459,9 +459,9 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
   typename VDBMappingT::GridT::Ptr grid = m_vdb_map->getMap();
   bool publish_vis_marker;
   publish_vis_marker =
-    (m_publish_vis_marker && this->count_subscribers("vdb_map_visualization") > 0);
+    (m_publish_vis_marker && this->count_subscribers("~/vdb_map_visualization") > 0);
   bool publish_pointcloud;
-  publish_pointcloud = (m_publish_pointcloud && this->count_subscribers("vdb_map_pointcloud") > 0);
+  publish_pointcloud = (m_publish_pointcloud && this->count_subscribers("~/vdb_map_pointcloud") > 0);
 
   visualization_msgs::msg::Marker visualization_marker_msg;
   sensor_msgs::msg::PointCloud2 cloud_msg;
