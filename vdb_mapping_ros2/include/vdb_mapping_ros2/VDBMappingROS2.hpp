@@ -199,13 +199,6 @@ public:
    */
   typename VDBMappingT::UpdateGridT::Ptr strToGrid(const std::string& msg) const;
 
-  /*!
-   * \brief Callback for dynamic reconfigure of parameters
-   *
-   * \param config new configuration
-   */
-  // void dynamicReconfigureCallback(vdb_mapping_ros::VDBMappingROSConfig& config, uint32_t);
-
 private:
   /*!
    * \brief Subscriber for raw pointclouds
@@ -255,8 +248,6 @@ private:
    */
   rclcpp::Service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>::SharedPtr
     m_trigger_map_section_update_service;
-  // dynamic_reconfigure::Server<vdb_mapping_ros::VDBMappingROSConfig>
-  // m_dynamic_reconfigure_service;
   /*!
    * \brief Transformation buffer
    */
