@@ -123,11 +123,18 @@ public:
   void mapOverwriteCallback(const std::shared_ptr<std_msgs::msg::String> update_msg);
 
   /*!
-   * \brief Returns a pointer to the map
+   * \brief Returns the map
    *
-   * \returns VDB grid pointer
+   * \returns VDB map
    */
-  const typename VDBMappingT::GridT::Ptr getMap();
+  VDBMappingT& getMap();
+
+  /*!
+   * \brief Returns the map
+   *
+   * \returns VDB map
+   */
+  const VDBMappingT& getMap() const;
 
   /*!
    * \brief Callback for map reset service call

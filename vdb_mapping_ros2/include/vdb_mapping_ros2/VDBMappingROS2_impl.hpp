@@ -208,9 +208,15 @@ bool VDBMappingROS2<VDBMappingT>::loadMap(
 }
 
 template <typename VDBMappingT>
-const typename VDBMappingT::GridT::Ptr VDBMappingROS2<VDBMappingT>::getMap()
+VDBMappingT& VDBMappingROS2<VDBMappingT>::getMap()
 {
-  return m_vdb_map->getMap();
+  return *m_vdb_map;
+}
+
+template <typename VDBMappingT>
+const VDBMappingT& VDBMappingROS2<VDBMappingT>::getMap() const
+{
+  return *m_vdb_map;
 }
 
 template <typename VDBMappingT>
@@ -457,7 +463,7 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
   {
     return;
   }
-  typename VDBMappingT::GridT::Ptr grid = m_vdb_map->getMap();
+  typename VDBMappingT::GridT::Ptr grid = m_vdb_map->getGrid();
   bool publish_vis_marker;
   publish_vis_marker =
     (m_publish_vis_marker && this->count_subscribers("~/vdb_map_visualization") > 0);
@@ -467,7 +473,7 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
 
   visualization_msgs::msg::Marker visualization_marker_msg;
   sensor_msgs::msg::PointCloud2 cloud_msg;
-  VDBMappingTools<VDBMappingT>::createMappingOutput(m_vdb_map->getMap(),
+  VDBMappingTools<VDBMappingT>::createMappingOutput(m_vdb_map->getGrid(),
                                                     m_map_frame,
                                                     visualization_marker_msg,
                                                     cloud_msg,
