@@ -38,7 +38,9 @@
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <vdb_mapping_interfaces/srv/get_map_section.hpp>
+#include <vdb_mapping_interfaces/srv/get_occ_grid.hpp>
 #include <vdb_mapping_interfaces/srv/load_map.hpp>
+#include <vdb_mapping_interfaces/srv/raytrace.hpp>
 #include <vdb_mapping_interfaces/srv/trigger_map_section_update.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
@@ -50,11 +52,20 @@
 
 struct RemoteSource
 {
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr map_update_sub;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr map_overwrite_sub;
+  rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_update_sub;
+  rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_overwrite_sub;
+  rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_section_sub;
   rclcpp::Client<vdb_mapping_interfaces::srv::GetMapSection>::SharedPtr get_map_section_client;
   bool apply_remote_updates;
   bool apply_remote_overwrites;
+  bool apply_remote_sections;
+};
+
+struct SensorSource
+{
+  std::string topic;
+  std::string sensor_origin_frame;
+  double max_range;
 };
 
 template <typename VDBMappingT>
@@ -82,19 +93,16 @@ public:
   bool loadMap(const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Request> req,
                const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Response> res);
   /*!
-   * \brief Sensor callback for scan aligned Pointclouds
-   * In contrast to the normal sensor callback here an additional sensor frame has to be specified
-   * as origin of the raycasting
+   * \brief Sensor callback for Pointclouds
    *
-   * \param msg PointCloud message
-   */
-  void alignedCloudCallback(const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg);
-  /*!
-   * \brief Sensor callback for raw pointclouds. All data will be transformed into the map frame.
+   * If the sensor_origin_frame is not empty it will be used instead of the frame id
+   * of the input cloud as origin of the raycasting
    *
-   * \param msg
+   * \param cloud_msg PointCloud message
+   * \param sensor_source Sensor source corresponding to the Pointcloud
    */
-  void sensorCloudCallback(const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg);
+  void cloudCallback(const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg,
+                     const SensorSource& sensor_source);
   /*!
    * \brief Integrating the transformed pointcloud and sensor origins into the core mapping library
    *
@@ -104,6 +112,10 @@ public:
    */
   void insertPointCloud(const typename VDBMappingT::PointCloudT::Ptr cloud,
                         const geometry_msgs::msg::TransformStamped transform);
+
+  void publishUpdates(typename VDBMappingT::UpdateGridT::Ptr update,
+                      typename VDBMappingT::UpdateGridT::Ptr overwrite,
+                      rclcpp::Time stamp);
   /*!
    * \brief Publishes a marker array and pointcloud representation of the map
    */
@@ -113,14 +125,25 @@ public:
    *
    * \param update_msg Single map update from a remote mapping instance
    */
-  void mapUpdateCallback(const std::shared_ptr<std_msgs::msg::String> update_msg);
+  void mapUpdateCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg);
 
   /*!
    * \brief Listens to map overwrites and creates a map from these
    *
    * \param update_msg Single map overwrite from a remote mapping instance
    */
-  void mapOverwriteCallback(const std::shared_ptr<std_msgs::msg::String> update_msg);
+  void
+  mapOverwriteCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg);
+
+  void
+  mapSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg);
+
+  /*!
+   * \brief Get the map frame name
+   *
+   * \returns Map frame name
+   */
+  const std::string& getMapFrame() const;
 
   /*!
    * \brief Returns the map
@@ -170,13 +193,41 @@ public:
     const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Response> res);
 
   /*!
+   * \brief Callback for occupancy grid service call
+   *
+   * \param req Trigger request
+   * \param res current occupancy grid
+   * \returns current occupancy grid
+   */
+  bool
+  occGridGenCallback(const std::shared_ptr<vdb_mapping_interfaces::srv::GetOccGrid::Request> req,
+                     const std::shared_ptr<vdb_mapping_interfaces::srv::GetOccGrid::Response> res);
+
+  /*!
+   * \brief Callback for raytrace service call
+   *
+   * \param req Origin and direction for raytracing
+   * \param res Resulting point of the raytrace
+   *
+   * \returns result of raytrace service
+   */
+  bool raytraceCallback(const std::shared_ptr<vdb_mapping_interfaces::srv::Raytrace::Request> req,
+                        const std::shared_ptr<vdb_mapping_interfaces::srv::Raytrace::Response> res);
+
+  void visualizationTimerCallback();
+  void accumulationUpdateTimerCallback();
+  void sectionTimerCallback();
+
+
+  /*!
    * \brief Creates a compressed Bitstream as ROS2 msg from an input grid
    *
    * \param update Update grid
    *
    * \returns bitstream
    */
-  std_msgs::msg::String gridToMsg(const typename VDBMappingT::UpdateGridT::Ptr update) const;
+  vdb_mapping_interfaces::msg::UpdateGrid
+  gridToMsg(const typename VDBMappingT::UpdateGridT::Ptr update) const;
 
   /*!
    * \brief Creates a compressed Bitstream as string from an input grid
@@ -195,7 +246,7 @@ public:
    * \returns Update Grid
    */
   typename VDBMappingT::UpdateGridT::Ptr
-  msgToGrid(const std::shared_ptr<std_msgs::msg::String> msg) const;
+  msgToGrid(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> msg) const;
 
   /*!
    * \brief Unpacks an update grid from a ROS2 msg
@@ -207,14 +258,15 @@ public:
   typename VDBMappingT::UpdateGridT::Ptr strToGrid(const std::string& msg) const;
 
 private:
+  std::vector<rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr> m_cloud_subs;
   /*!
    * \brief Subscriber for raw pointclouds
    */
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_sensor_cloud_sub;
+  // rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_sensor_cloud_sub;
   /*!
    * \brief Subscriber for scan aligned pointclouds
    */
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_aligned_cloud_sub;
+  // rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_aligned_cloud_sub;
   /*!
    * \brief Publisher for the marker array
    */
@@ -226,11 +278,15 @@ private:
   /*!
    * \brief Publisher for map updates
    */
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_map_update_pub;
+  rclcpp::Publisher<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr m_map_update_pub;
   /*!
    * \brief Publisher for map overwrites
    */
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_map_overwrite_pub;
+  rclcpp::Publisher<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr m_map_overwrite_pub;
+  /*!
+   * \brief Publisher for map sections
+   */
+  rclcpp::Publisher<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr m_map_section_pub;
   /*!
    * \brief Saves map in specified path from parameter server
    */
@@ -246,6 +302,15 @@ private:
   /*!
    * \brief Service for dynamic reconfigure of parameters
    */
+  // TODO
+  /*!
+   * \brief Service to request an occupancy grid based on the current VDB map
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::GetOccGrid>::SharedPtr m_occupancy_grid_service;
+  /*!
+   * \brief Service for raytracing
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::Raytrace>::SharedPtr m_raytrace_service;
   /*!
    * \brief Service for map section requests
    */
@@ -268,13 +333,13 @@ private:
    */
   double m_resolution;
   /*!
-   * \brief Sensor frame used for raycasting of scan aligned pointclouds
-   */
-  std::string m_sensor_frame;
-  /*!
    * \brief Map Frame
    */
   std::string m_map_frame;
+  /*!
+   * \brief Robot Frame
+   */
+  std::string m_robot_frame;
   /*!
    * \brief Map pointer
    */
@@ -300,17 +365,49 @@ private:
    */
   bool m_publish_overwrites;
   /*!
+   * \brief Specifies whether the mapping publishes map sections for remote use
+   */
+  bool m_publish_sections;
+  /*!
    * \brief Specifies whether the mapping applies raw sensor data
    */
   bool m_apply_raw_sensor_data;
   /*!
-   * \brief Specifies whether the data reduction is enabled
-   */
-  bool m_reduce_data;
-  /*!
    * \brief Map of remote mapping source connections
    */
   std::map<std::string, RemoteSource> m_remote_sources;
+  /*!
+   * \brief Timer for map visualization
+   */
+  rclcpp::TimerBase::SharedPtr m_visualization_timer;
+  /*!
+   * \brief Specifies whether the sensor data is accumulated before updating the map
+   */
+  bool m_accumulate_updates;
+  /*!
+   * \brief Timer for integrating accumulated data
+   */
+  rclcpp::TimerBase::SharedPtr m_accumulation_update_timer;
+  /*!
+   * \brief Timer for publishing map sections
+   */
+  rclcpp::TimerBase::SharedPtr m_section_timer;
+  /*!
+   * \brief Min Coordinate of the section update bounding box
+   */
+  Eigen::Matrix<double, 3, 1> m_section_min_coord;
+  /*!
+   * \brief Max Coordinate of the section update bounding box
+   */
+  Eigen::Matrix<double, 3, 1> m_section_max_coord;
+  /*!
+   * \brief Reference Frame for the section update
+   */
+  std::string m_section_update_frame;
+  /*!
+   * \brief Specifies the number of voxels which count as occupied for the occupancy grid
+   */
+  int m_two_dim_projection_threshold;
 };
 
 

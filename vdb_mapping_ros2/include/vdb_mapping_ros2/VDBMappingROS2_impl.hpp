@@ -49,6 +49,8 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
   this->get_parameter("prob_thres_max", m_config.prob_thres_max);
   this->declare_parameter<std::string>("map_directory_path", "");
   this->get_parameter("map_directory_path", m_config.map_directory_path);
+  this->declare_parameter<int>("two_dim_projection_threshold", 5);
+  this->get_parameter("two_dim_projection_threshold", m_two_dim_projection_threshold);
 
   // Configuring the VDB map
   m_vdb_map->setConfig(m_config);
@@ -61,54 +63,25 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
   this->get_parameter("publish_updates", m_publish_updates);
   this->declare_parameter<bool>("publish_overwrites", true);
   this->get_parameter("publish_overwrites", m_publish_overwrites);
+  this->declare_parameter<bool>("publish_sections", true);
+  this->get_parameter("publish_sections", m_publish_sections);
   this->declare_parameter<bool>("apply_raw_sensor_data", true);
   this->get_parameter("apply_raw_sensor_data", m_apply_raw_sensor_data);
-  this->declare_parameter<bool>("reduce_data", false);
-  this->get_parameter("reduce_data", m_reduce_data);
 
 
-  this->declare_parameter<std::string>("sensor_frame", "");
-  this->get_parameter("sensor_frame", m_sensor_frame);
-  if (m_sensor_frame.empty())
-  {
-    RCLCPP_WARN(this->get_logger(), "No sensor frame specified");
-  }
   this->declare_parameter<std::string>("map_frame", "");
   this->get_parameter("map_frame", m_map_frame);
   if (m_map_frame.empty())
   {
     RCLCPP_WARN(this->get_logger(), "No map frame specified");
   }
-
-  std::string raw_points_topic;
-  std::string aligned_points_topic;
-  this->declare_parameter<std::string>("raw_points", "");
-  this->get_parameter("raw_points", raw_points_topic);
-  this->declare_parameter<std::string>("aligned_points", "");
-  this->get_parameter("aligned_points", aligned_points_topic);
-
-  m_reset_map_service = this->create_service<std_srvs::srv::Trigger>(
-    "~/reset_map", std::bind(&VDBMappingROS2::resetMapCallback, this, _1, _2));
-
-  m_save_map_service = this->create_service<std_srvs::srv::Trigger>(
-    "~/save_map", std::bind(&VDBMappingROS2::saveMap, this, _1, _2));
-
-  m_load_map_service = this->create_service<vdb_mapping_interfaces::srv::LoadMap>(
-    "~/load_map", std::bind(&VDBMappingROS2::loadMap, this, _1, _2));
-
-  m_get_map_section_service = this->create_service<vdb_mapping_interfaces::srv::GetMapSection>(
-    "~/get_map_section", std::bind(&VDBMappingROS2::getMapSectionCallback, this, _1, _2));
-
-  m_trigger_map_section_update_service =
-    this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
-      "~/trigger_map_section_update",
-      std::bind(&VDBMappingROS2::triggerMapSectionUpdateCallback, this, _1, _2));
-
-  m_pointcloud_pub =
-    this->create_publisher<sensor_msgs::msg::PointCloud2>("~/vdb_map_pointcloud", 1);
-  m_visualization_marker_pub =
-    this->create_publisher<visualization_msgs::msg::Marker>("~/vdb_map_visualization", 1);
-
+  m_vdb_map->getGrid()->insertMeta("ros/map_frame", openvdb::StringMetadata(m_map_frame));
+  this->declare_parameter<std::string>("robot_frame", "");
+  this->get_parameter("robot_frame", m_robot_frame);
+  if (m_robot_frame.empty())
+  {
+    RCLCPP_WARN(this->get_logger(), "No robot frame specified");
+  }
 
   // Setting up remote sources
   std::vector<std::string> source_ids;
@@ -127,19 +100,31 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
     this->declare_parameter<bool>(source_id + ".apply_remote_overwrites", false);
     this->get_parameter(source_id + ".apply_remote_overwrites",
                         remote_source.apply_remote_overwrites);
+    this->declare_parameter<bool>(source_id + ".apply_remote_sections", false);
+    this->get_parameter(source_id + ".apply_remote_sections", remote_source.apply_remote_sections);
     if (remote_source.apply_remote_updates)
     {
-      remote_source.map_update_sub = this->create_subscription<std_msgs::msg::String>(
-        remote_namespace + "/vdb_map_updates",
-        1,
-        std::bind(&VDBMappingROS2::mapUpdateCallback, this, _1));
+      remote_source.map_update_sub =
+        this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
+          remote_namespace + "/vdb_map_updates",
+          1,
+          std::bind(&VDBMappingROS2::mapUpdateCallback, this, _1));
     }
     if (remote_source.apply_remote_overwrites)
     {
-      remote_source.map_update_sub = this->create_subscription<std_msgs::msg::String>(
-        remote_namespace + "/vdb_map_overwrites",
-        1,
-        std::bind(&VDBMappingROS2::mapUpdateCallback, this, _1));
+      remote_source.map_overwrite_sub =
+        this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
+          remote_namespace + "/vdb_map_overwrites",
+          1,
+          std::bind(&VDBMappingROS2::mapOverwriteCallback, this, _1));
+    }
+    if (remote_source.apply_remote_sections)
+    {
+      remote_source.map_section_sub =
+        this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
+          remote_namespace + "/vdb_map_sections",
+          1,
+          std::bind(&VDBMappingROS2::mapSectionCallback, this, _1));
     }
     remote_source.get_map_section_client =
       this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
@@ -149,18 +134,127 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
 
   if (m_publish_updates)
   {
-    m_map_update_pub = this->create_publisher<std_msgs::msg::String>("~/vdb_map_updates", 1);
+    m_map_update_pub =
+      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_updates", 1);
   }
   if (m_publish_overwrites)
   {
-    m_map_overwrite_pub = this->create_publisher<std_msgs::msg::String>("~/vdb_map_overwrites", 1);
+    m_map_overwrite_pub =
+      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_overwrites", 1);
   }
+  if (m_publish_sections)
+  {
+    m_map_section_pub =
+      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_sections", 1);
+
+    double section_update_rate;
+    this->declare_parameter<double>("section_update.rate", 1);
+    this->get_parameter("section_update.rate", section_update_rate);
+    m_section_timer =
+      this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
+                              std::bind(&VDBMappingROS2::sectionTimerCallback, this));
+
+    this->declare_parameter<double>("section_update.min_coord.x", -10);
+    this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
+    this->declare_parameter<double>("section_update.min_coord.y", -10);
+    this->get_parameter("section_update.min_coord.y", m_section_min_coord.y());
+    this->declare_parameter<double>("section_update.min_coord.z", -10);
+    this->get_parameter("section_update.min_coord.z", m_section_min_coord.z());
+    this->declare_parameter<double>("section_update.max_coord.x", -10);
+    this->get_parameter("section_update.max_coord.x", m_section_max_coord.x());
+    this->declare_parameter<double>("section_update.max_coord.y", -10);
+    this->get_parameter("section_update.max_coord.y", m_section_max_coord.y());
+    this->declare_parameter<double>("section_update.max_coord.z", -10);
+    this->get_parameter("section_update.max_coord.z", m_section_max_coord.z());
+    this->declare_parameter<std::string>("section_update.frame", m_robot_frame);
+    this->get_parameter("section_update.frame", m_section_update_frame);
+  }
+
   if (m_apply_raw_sensor_data)
   {
-    m_sensor_cloud_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      raw_points_topic, 1, std::bind(&VDBMappingROS2::sensorCloudCallback, this, _1));
-    m_aligned_cloud_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      aligned_points_topic, 1, std::bind(&VDBMappingROS2::alignedCloudCallback, this, _1));
+    this->get_parameter("sources", source_ids);
+    for (auto& source_id : source_ids)
+    {
+      SensorSource sensor_source;
+      this->declare_parameter<std::string>(source_id + ".topic", "");
+      this->get_parameter(source_id + ".topic", sensor_source.topic);
+      this->declare_parameter<std::string>(source_id + ".sensor_origin_frame", "");
+      this->get_parameter(source_id + ".sensor_origin_frame", sensor_source.sensor_origin_frame);
+      this->declare_parameter<double>(source_id + ".max_range", 0);
+      this->get_parameter(source_id + ".max_range", sensor_source.max_range);
+      RCLCPP_INFO_STREAM(this->get_logger(), "Setting up source: " << source_id);
+      if (sensor_source.topic.empty())
+      {
+        RCLCPP_ERROR_STREAM(this->get_logger(),
+                            "No input topic specified for source: " << source_id);
+        continue;
+      }
+      RCLCPP_INFO_STREAM(this->get_logger(), "Topic: " << sensor_source.topic);
+      if (sensor_source.sensor_origin_frame.empty())
+      {
+        RCLCPP_INFO(this->get_logger(), "Using frame id of topic as raycast origin");
+      }
+      else
+      {
+        RCLCPP_INFO_STREAM(this->get_logger(),
+                           "Using " << sensor_source.sensor_origin_frame << " as raycast origin");
+      }
+
+
+      m_cloud_subs.push_back(this->create_subscription<sensor_msgs::msg::PointCloud2>(
+        sensor_source.topic,
+        1,
+        [&](const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg) {
+          cloudCallback(cloud_msg, sensor_source);
+        }));
+    }
+  }
+
+  m_reset_map_service = this->create_service<std_srvs::srv::Trigger>(
+    "~/reset_map", std::bind(&VDBMappingROS2::resetMapCallback, this, _1, _2));
+
+  m_save_map_service = this->create_service<std_srvs::srv::Trigger>(
+    "~/save_map", std::bind(&VDBMappingROS2::saveMap, this, _1, _2));
+
+  m_load_map_service = this->create_service<vdb_mapping_interfaces::srv::LoadMap>(
+    "~/load_map", std::bind(&VDBMappingROS2::loadMap, this, _1, _2));
+
+  m_get_map_section_service = this->create_service<vdb_mapping_interfaces::srv::GetMapSection>(
+    "~/get_map_section", std::bind(&VDBMappingROS2::getMapSectionCallback, this, _1, _2));
+
+  m_trigger_map_section_update_service =
+    this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
+      "~/trigger_map_section_update",
+      std::bind(&VDBMappingROS2::triggerMapSectionUpdateCallback, this, _1, _2));
+
+  m_raytrace_service = this->create_service<vdb_mapping_interfaces::srv::Raytrace>(
+    "~/raytrace", std::bind(&VDBMappingROS2::raytraceCallback, this, _1, _2));
+
+  m_pointcloud_pub =
+    this->create_publisher<sensor_msgs::msg::PointCloud2>("~/vdb_map_pointcloud", 1);
+  m_visualization_marker_pub =
+    this->create_publisher<visualization_msgs::msg::Marker>("~/vdb_map_visualization", 1);
+
+  m_occupancy_grid_service = this->create_service<vdb_mapping_interfaces::srv::GetOccGrid>(
+    "~/get_occupancy_grid", std::bind(&VDBMappingROS2::occGridGenCallback, this, _1, _2));
+
+  double visualization_rate;
+  this->declare_parameter<double>("visualization_rate", 1.0);
+  this->get_parameter("visualization_rate", visualization_rate);
+  m_visualization_timer =
+    this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / visualization_rate)),
+                            std::bind(&VDBMappingROS2::visualizationTimerCallback, this));
+
+  this->declare_parameter<bool>("accumulate_updates", false);
+  this->get_parameter("accumulate_updates", m_accumulate_updates);
+  if (m_accumulate_updates)
+  {
+    double accumulation_period;
+    this->declare_parameter<double>("accumulation_period", 1);
+    this->get_parameter("accumulation_period", accumulation_period);
+    m_accumulation_update_timer =
+      this->create_wall_timer(std::chrono::milliseconds((int)(1000 * accumulation_period)),
+                              std::bind(&VDBMappingROS2::accumulationUpdateTimerCallback, this));
   }
 }
 
@@ -208,6 +302,12 @@ bool VDBMappingROS2<VDBMappingT>::loadMap(
 }
 
 template <typename VDBMappingT>
+const std::string& VDBMappingROS2<VDBMappingT>::getMapFrame() const
+{
+  return m_map_frame;
+}
+
+template <typename VDBMappingT>
 VDBMappingT& VDBMappingROS2<VDBMappingT>::getMap()
 {
   return *m_vdb_map;
@@ -235,19 +335,22 @@ bool VDBMappingROS2<VDBMappingT>::getMapSectionCallback(
     RCLCPP_ERROR(this->get_logger(),
                  "Could not transform %s to %s: %s",
                  m_map_frame.c_str(),
-                 m_sensor_frame.c_str(),
+                 req->header.frame_id.c_str(),
                  ex.what());
     res->success = false;
     return true;
   }
-  res->map     = gridToStr(m_vdb_map->getMapSection(req->bounding_box.min_corner.x,
-                                                req->bounding_box.min_corner.y,
-                                                req->bounding_box.min_corner.z,
-                                                req->bounding_box.max_corner.x,
-                                                req->bounding_box.max_corner.y,
-                                                req->bounding_box.max_corner.z,
-                                                tf2::transformToEigen(source_to_map_tf).matrix()));
-  res->success = true;
+  res->section = gridToMsg(
+    m_vdb_map->getMapSectionUpdateGrid(Eigen::Matrix<double, 3, 1>(req->bounding_box.min_corner.x,
+                                                                   req->bounding_box.min_corner.y,
+                                                                   req->bounding_box.min_corner.z),
+                                       Eigen::Matrix<double, 3, 1>(req->bounding_box.max_corner.x,
+                                                                   req->bounding_box.max_corner.y,
+                                                                   req->bounding_box.max_corner.z),
+                                       tf2::transformToEigen(source_to_map_tf).matrix()));
+  res->section.header.frame_id = m_map_frame;
+  res->section.header.stamp    = this->now();
+  res->success                 = true;
 
   return true;
 }
@@ -282,8 +385,7 @@ bool VDBMappingROS2<VDBMappingT>::triggerMapSectionUpdateCallback(
     auto response = result.get();
     if (response->success)
     {
-      m_vdb_map->overwriteMap(strToGrid(response->map));
-      publishMap();
+      m_vdb_map->overwriteMap(strToGrid(response->section.map));
     }
     res->success = response->success;
   }
@@ -297,11 +399,97 @@ bool VDBMappingROS2<VDBMappingT>::triggerMapSectionUpdateCallback(
 }
 
 template <typename VDBMappingT>
-std_msgs::msg::String
+bool VDBMappingROS2<VDBMappingT>::raytraceCallback(
+  const std::shared_ptr<vdb_mapping_interfaces::srv::Raytrace::Request> req,
+  const std::shared_ptr<vdb_mapping_interfaces::srv::Raytrace::Response> res)
+{
+  geometry_msgs::msg::TransformStamped reference_tf;
+  try
+  {
+    reference_tf =
+      m_tf_buffer->lookupTransform(m_map_frame, req->header.frame_id.c_str(), req->header.stamp);
+
+    Eigen::Matrix<double, 4, 4> m = tf2::transformToEigen(reference_tf).matrix();
+    Eigen::Matrix<double, 4, 1> origin, direction;
+    origin << req->origin.x, req->origin.y, req->origin.z, 1;
+    direction << req->direction.x, req->direction.y, req->direction.z, 0;
+
+    origin    = m * origin;
+    direction = m * direction;
+
+    openvdb::Vec3d end_point;
+
+    res->success = m_vdb_map->raytrace(openvdb::Vec3d(origin.x(), origin.y(), origin.z()),
+                                       openvdb::Vec3d(direction.x(), direction.y(), direction.z()),
+                                       req->max_ray_length,
+                                       end_point);
+
+    res->header.frame_id = m_map_frame;
+    res->header.stamp    = req->header.stamp;
+    res->end_point.x     = end_point.x();
+    res->end_point.y     = end_point.y();
+    res->end_point.z     = end_point.z();
+  }
+  catch (tf2::TransformException& ex)
+  {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Transform to map frame failed: " << ex.what());
+    res->success = false;
+  }
+  return true;
+}
+
+template <typename VDBMappingT>
+void VDBMappingROS2<VDBMappingT>::visualizationTimerCallback()
+{
+  publishMap();
+}
+
+template <typename VDBMappingT>
+void VDBMappingROS2<VDBMappingT>::accumulationUpdateTimerCallback()
+{
+  typename VDBMappingT::UpdateGridT::Ptr update;
+  typename VDBMappingT::UpdateGridT::Ptr overwrite;
+  m_vdb_map->integrateUpdate(update, overwrite);
+
+  publishUpdates(update, overwrite, this->now());
+  m_vdb_map->resetUpdate();
+}
+
+template <typename VDBMappingT>
+void VDBMappingROS2<VDBMappingT>::sectionTimerCallback()
+{
+  geometry_msgs::msg::TransformStamped map_to_robot_tf;
+  try
+  {
+    // Get sensor origin transform in map coordinates
+    map_to_robot_tf = m_tf_buffer->lookupTransform(
+      m_map_frame, m_section_update_frame, rclcpp::Time(0), rclcpp::Duration(1, 0));
+  }
+  catch (tf2::TransformException& ex)
+  {
+    RCLCPP_ERROR(this->get_logger(),
+                 "Could not transform %s to %s: %s",
+                 m_map_frame.c_str(),
+                 m_section_update_frame.c_str(),
+                 ex.what());
+    return;
+  }
+
+  typename VDBMappingT::UpdateGridT::Ptr section = m_vdb_map->getMapSectionUpdateGrid(
+    m_section_min_coord, m_section_max_coord, tf2::transformToEigen(map_to_robot_tf).matrix());
+  vdb_mapping_interfaces::msg::UpdateGrid msg;
+  msg.header.frame_id = m_map_frame;
+  msg.header.stamp    = map_to_robot_tf.header.stamp;
+  msg.map             = gridToStr(section);
+  m_map_section_pub->publish(msg);
+}
+
+template <typename VDBMappingT>
+vdb_mapping_interfaces::msg::UpdateGrid
 VDBMappingROS2<VDBMappingT>::gridToMsg(const typename VDBMappingT::UpdateGridT::Ptr update) const
 {
-  std_msgs::msg::String msg;
-  msg.data = gridToStr(update);
+  vdb_mapping_interfaces::msg::UpdateGrid msg;
+  msg.map = gridToStr(update);
   return msg;
 }
 
@@ -317,10 +505,10 @@ VDBMappingROS2<VDBMappingT>::gridToStr(const typename VDBMappingT::UpdateGridT::
 }
 
 template <typename VDBMappingT>
-typename VDBMappingT::UpdateGridT::Ptr
-VDBMappingROS2<VDBMappingT>::msgToGrid(const std::shared_ptr<std_msgs::msg::String> msg) const
+typename VDBMappingT::UpdateGridT::Ptr VDBMappingROS2<VDBMappingT>::msgToGrid(
+  const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> msg) const
 {
-  return strToGrid(msg->data);
+  return strToGrid(msg->map);
 }
 
 template <typename VDBMappingT>
@@ -340,56 +528,116 @@ VDBMappingROS2<VDBMappingT>::strToGrid(const std::string& msg) const
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapUpdateCallback(
-  const std::shared_ptr<std_msgs::msg::String> update_msg)
+  const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
-  if (!m_reduce_data)
-  {
-    m_vdb_map->updateMap(msgToGrid(update_msg));
-  }
-  else
-  {
-    m_vdb_map->updateMap(m_vdb_map->raycastUpdateGrid(msgToGrid(update_msg)));
-  }
-  publishMap();
+  m_vdb_map->updateMap(msgToGrid(update_msg));
 }
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapOverwriteCallback(
-  const std::shared_ptr<std_msgs::msg::String> update_msg)
+  const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
   m_vdb_map->overwriteMap(msgToGrid(update_msg));
-  publishMap();
 }
 
 template <typename VDBMappingT>
-void VDBMappingROS2<VDBMappingT>::alignedCloudCallback(
-  const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg)
+void VDBMappingROS2<VDBMappingT>::mapSectionCallback(
+  const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
+{
+  m_vdb_map->applyMapSectionUpdateGrid(msgToGrid(update_msg));
+}
+
+template <typename VDBMappingT>
+bool VDBMappingROS2<VDBMappingT>::occGridGenCallback(
+  const std::shared_ptr<vdb_mapping_interfaces::srv::GetOccGrid::Request> req,
+  const std::shared_ptr<vdb_mapping_interfaces::srv::GetOccGrid::Response> res)
+{
+  (void)req;
+  nav_msgs::msg::OccupancyGrid grid;
+  openvdb::CoordBBox curr_bbox = m_vdb_map->getGrid()->evalActiveVoxelBoundingBox();
+  grid.header.frame_id         = m_map_frame;
+  grid.header.stamp            = this->now();
+  grid.info.height             = curr_bbox.dim().y();
+  grid.info.width              = curr_bbox.dim().x();
+  grid.info.resolution         = m_resolution;
+  std::vector<int> voxel_projection_grid;
+  grid.data.resize(grid.info.width * grid.info.height);
+  voxel_projection_grid.resize(grid.info.width * grid.info.height);
+
+  int x_offset = abs(curr_bbox.min().x());
+  int y_offset = abs(curr_bbox.min().y());
+
+  geometry_msgs::msg::Pose origin_pose;
+  origin_pose.position.x = curr_bbox.min().x() * m_resolution;
+  origin_pose.position.y = curr_bbox.min().y() * m_resolution;
+  origin_pose.position.z = 0.00;
+
+  grid.info.origin   = origin_pose;
+  int world_to_index = 0;
+  for (openvdb::FloatGrid::ValueOnCIter iter = m_vdb_map->getGrid()->cbeginValueOn(); iter; ++iter)
+  {
+    if (iter.isValueOn())
+    {
+      world_to_index =
+        (iter.getCoord().y() + y_offset) * curr_bbox.dim().x() + (iter.getCoord().x() + x_offset);
+      voxel_projection_grid[world_to_index] += 1;
+    }
+  }
+
+  for (size_t i = 0; i < voxel_projection_grid.size(); i++)
+  {
+    if (voxel_projection_grid[i] > m_two_dim_projection_threshold)
+    {
+      grid.data[i] = 100;
+    }
+    else if (voxel_projection_grid[i] == 0)
+    {
+      grid.data[i] = -1;
+    }
+    else
+    {
+      grid.data[i] = 0;
+    }
+  }
+  res->occupancy_grid = grid;
+  return true;
+}
+
+
+template <typename VDBMappingT>
+void VDBMappingROS2<VDBMappingT>::cloudCallback(
+  const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg, const SensorSource& sensor_source)
 {
   typename VDBMappingT::PointCloudT::Ptr cloud(new typename VDBMappingT::PointCloudT);
   pcl::fromROSMsg(*cloud_msg, *cloud);
-  geometry_msgs::msg::TransformStamped sensor_to_map_tf;
+  geometry_msgs::msg::TransformStamped cloud_origin_tf;
+
+  std::string sensor_frame = sensor_source.sensor_origin_frame.empty()
+                               ? cloud_msg->header.frame_id
+                               : sensor_source.sensor_origin_frame;
+
+  // Get the origin of the sensor used as a starting point of the ray cast
   try
   {
-    // Get sensor origin transform in map coordinates
-    sensor_to_map_tf =
-      m_tf_buffer->lookupTransform(m_map_frame, m_sensor_frame, cloud_msg->header.stamp);
+    cloud_origin_tf = m_tf_buffer->lookupTransform(
+      m_map_frame, sensor_frame, cloud_msg->header.stamp, rclcpp::Duration(0, 100000000));
   }
   catch (tf2::TransformException& ex)
   {
     RCLCPP_ERROR(this->get_logger(),
                  "Could not transform %s to %s: %s",
                  m_map_frame.c_str(),
-                 m_sensor_frame.c_str(),
+                 sensor_frame.c_str(),
                  ex.what());
     return;
   }
   // If aligned map is not already in correct map frame, transform it
   if (m_map_frame != cloud_msg->header.frame_id)
   {
-    geometry_msgs::msg::TransformStamped map_to_map_tf;
+    geometry_msgs::msg::TransformStamped origin_to_map_tf;
     try
     {
-      map_to_map_tf = m_tf_buffer->lookupTransform(
+      origin_to_map_tf = m_tf_buffer->lookupTransform(
         m_map_frame, cloud_msg->header.frame_id, cloud_msg->header.stamp);
     }
     catch (tf2::TransformException& ex)
@@ -401,39 +649,20 @@ void VDBMappingROS2<VDBMappingT>::alignedCloudCallback(
                    ex.what());
       return;
     }
-    pcl::transformPointCloud(*cloud, *cloud, tf2::transformToEigen(map_to_map_tf).matrix());
+    pcl::transformPointCloud(*cloud, *cloud, tf2::transformToEigen(origin_to_map_tf).matrix());
     cloud->header.frame_id = m_map_frame;
   }
-  insertPointCloud(cloud, sensor_to_map_tf);
-}
-template <typename VDBMappingT>
-void VDBMappingROS2<VDBMappingT>::sensorCloudCallback(
-  const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg)
-{
-  typename VDBMappingT::PointCloudT::Ptr cloud(new typename VDBMappingT::PointCloudT);
-  pcl::fromROSMsg(*cloud_msg, *cloud);
-  geometry_msgs::msg::TransformStamped sensor_to_map_tf;
-  try
+  m_vdb_map->accumulateUpdate(
+    cloud, tf2::transformToEigen(cloud_origin_tf).translation(), sensor_source.max_range);
+  if (!m_accumulate_updates)
   {
-    // Get sensor origin transform in map coordinates
-    sensor_to_map_tf = m_tf_buffer->lookupTransform(
-      m_map_frame, cloud_msg->header.frame_id, cloud_msg->header.stamp);
+    typename VDBMappingT::UpdateGridT::Ptr update;
+    typename VDBMappingT::UpdateGridT::Ptr overwrite;
+    m_vdb_map->integrateUpdate(update, overwrite);
+    m_vdb_map->resetUpdate();
+    publishUpdates(update, overwrite, cloud_msg->header.stamp);
   }
-  catch (tf2::TransformException& ex)
-  {
-    RCLCPP_ERROR(this->get_logger(),
-                 "Could not transform %s to %s: %s",
-                 m_map_frame.c_str(),
-                 cloud_msg->header.frame_id.c_str(),
-                 ex.what());
-    return;
-  }
-  // Transform pointcloud into map reference system
-  pcl::transformPointCloud(*cloud, *cloud, tf2::transformToEigen(sensor_to_map_tf).matrix());
-  cloud->header.frame_id = m_map_frame;
-  insertPointCloud(cloud, sensor_to_map_tf);
 }
-
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::insertPointCloud(
@@ -444,16 +673,30 @@ void VDBMappingROS2<VDBMappingT>::insertPointCloud(
   typename VDBMappingT::UpdateGridT::Ptr update;
   typename VDBMappingT::UpdateGridT::Ptr overwrite;
   // Integrate data into vdb grid
-  m_vdb_map->insertPointCloud(cloud, sensor_to_map_eigen, update, overwrite, m_reduce_data);
+  m_vdb_map->insertPointCloud(cloud, sensor_to_map_eigen, update, overwrite);
+  publishUpdates(update, overwrite, transform.header.stamp);
+}
+
+template <typename VDBMappingT>
+void VDBMappingROS2<VDBMappingT>::publishUpdates(typename VDBMappingT::UpdateGridT::Ptr update,
+                                                 typename VDBMappingT::UpdateGridT::Ptr overwrite,
+                                                 rclcpp::Time stamp)
+{
+  std_msgs::msg::Header header;
+  header.frame_id = m_map_frame;
+  header.stamp    = stamp;
   if (m_publish_updates)
   {
-    m_map_update_pub->publish(gridToMsg(update));
+    vdb_mapping_interfaces::msg::UpdateGrid msg = gridToMsg(update);
+    msg.header                                  = header;
+    m_map_update_pub->publish(msg);
   }
   if (m_publish_overwrites)
   {
-    m_map_overwrite_pub->publish(gridToMsg(update));
+    vdb_mapping_interfaces::msg::UpdateGrid msg = gridToMsg(overwrite);
+    msg.header                                  = header;
+    m_map_update_pub->publish(msg);
   }
-  publishMap();
 }
 
 template <typename VDBMappingT>
@@ -463,7 +706,6 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
   {
     return;
   }
-  typename VDBMappingT::GridT::Ptr grid = m_vdb_map->getGrid();
   bool publish_vis_marker;
   publish_vis_marker =
     (m_publish_vis_marker && this->count_subscribers("~/vdb_map_visualization") > 0);
