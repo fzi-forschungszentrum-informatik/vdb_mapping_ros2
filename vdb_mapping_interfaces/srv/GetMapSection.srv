@@ -1,5 +1,5 @@
 std_msgs/Header header
 BoundingBox bounding_box
 ---
-string map
+UpdateGrid section
 bool success
