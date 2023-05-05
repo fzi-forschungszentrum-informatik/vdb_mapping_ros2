@@ -13,8 +13,11 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BoundingBox.msg"
-  "srv/LoadMap.srv"
+  "msg/UpdateGrid.msg"
   "srv/GetMapSection.srv"
+  "srv/GetOccGrid.srv"
+  "srv/LoadMap.srv"
+  "srv/Raytrace.srv"
   "srv/TriggerMapSectionUpdate.srv"
   DEPENDENCIES
     std_msgs
