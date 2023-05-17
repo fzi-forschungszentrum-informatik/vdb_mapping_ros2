@@ -1,2 +1,2 @@
 std_msgs/Header header
-string map
+uint8[] map
