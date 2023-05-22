@@ -385,7 +385,7 @@ bool VDBMappingROS2<VDBMappingT>::triggerMapSectionUpdateCallback(
     auto response = result.get();
     if (response->success)
     {
-      m_vdb_map->overwriteMap(strToGrid(response->section.map));
+      m_vdb_map->overwriteMap(byteArrayToGrid(response->section.map));
     }
     res->success = response->success;
   }
@@ -480,7 +480,7 @@ void VDBMappingROS2<VDBMappingT>::sectionTimerCallback()
   vdb_mapping_interfaces::msg::UpdateGrid msg;
   msg.header.frame_id = m_map_frame;
   msg.header.stamp    = map_to_robot_tf.header.stamp;
-  msg.map             = gridToStr(section);
+  msg.map             = gridToByteArray(section);
   m_map_section_pub->publish(msg);
 }
 
@@ -489,7 +489,7 @@ vdb_mapping_interfaces::msg::UpdateGrid
 VDBMappingROS2<VDBMappingT>::gridToMsg(const typename VDBMappingT::UpdateGridT::Ptr update) const
 {
   vdb_mapping_interfaces::msg::UpdateGrid msg;
-  msg.map = gridToStr(update);
+  msg.map = gridToByteArray(update);
   return msg;
 }
 
@@ -505,10 +505,18 @@ VDBMappingROS2<VDBMappingT>::gridToStr(const typename VDBMappingT::UpdateGridT::
 }
 
 template <typename VDBMappingT>
+std::vector<uint8_t>
+VDBMappingROS2<VDBMappingT>::gridToByteArray(const typename VDBMappingT::UpdateGridT::Ptr update) const
+{
+  std::string map_str = gridToStr(update);
+  return std::vector<uint8_t>(map_str.begin(), map_str.end());
+}
+
+template <typename VDBMappingT>
 typename VDBMappingT::UpdateGridT::Ptr VDBMappingROS2<VDBMappingT>::msgToGrid(
   const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> msg) const
 {
-  return strToGrid(msg->map);
+  return byteArrayToGrid(msg->map);
 }
 
 template <typename VDBMappingT>
@@ -524,6 +532,14 @@ VDBMappingROS2<VDBMappingT>::strToGrid(const std::string& msg) const
   typename VDBMappingT::UpdateGridT::Ptr update_grid =
     openvdb::gridPtrCast<typename VDBMappingT::UpdateGridT>(grids->front());
   return update_grid;
+}
+
+template <typename VDBMappingT>
+typename VDBMappingT::UpdateGridT::Ptr
+VDBMappingROS2<VDBMappingT>::byteArrayToGrid(const std::vector<uint8_t>& msg) const
+{
+  std::string map_str(msg.begin(), msg.end());
+  return strToGrid(map_str);
 }
 
 template <typename VDBMappingT>
