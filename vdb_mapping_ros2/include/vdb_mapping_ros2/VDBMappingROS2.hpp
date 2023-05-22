@@ -258,9 +258,9 @@ public:
   msgToGrid(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> msg) const;
 
   /*!
-   * \brief Unpacks an update grid from a ROS2 msg
+   * \brief Unpacks an update grid from a std::string
    *
-   * \param msg Compressed Bitstream as ROS2 msg
+   * \param msg Compressed Bitstream as std::string
    *
    * \returns Update Grid
    */
