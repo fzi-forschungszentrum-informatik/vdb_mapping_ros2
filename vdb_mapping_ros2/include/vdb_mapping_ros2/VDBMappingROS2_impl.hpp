@@ -107,7 +107,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
       remote_source.map_update_sub =
         this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
           remote_namespace + "/vdb_map_updates",
-          1,
+          rclcpp::QoS(10).durability_volatile().best_effort(),
           std::bind(&VDBMappingROS2::mapUpdateCallback, this, _1));
     }
     if (remote_source.apply_remote_overwrites)
@@ -115,7 +115,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
       remote_source.map_overwrite_sub =
         this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
           remote_namespace + "/vdb_map_overwrites",
-          1,
+          rclcpp::QoS(10).durability_volatile().best_effort(),
           std::bind(&VDBMappingROS2::mapOverwriteCallback, this, _1));
     }
     if (remote_source.apply_remote_sections)
@@ -123,7 +123,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
       remote_source.map_section_sub =
         this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
           remote_namespace + "/vdb_map_sections",
-          1,
+          rclcpp::QoS(10).durability_volatile().best_effort(),
           std::bind(&VDBMappingROS2::mapSectionCallback, this, _1));
     }
     remote_source.get_map_section_client =
@@ -135,17 +135,17 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
   if (m_publish_updates)
   {
     m_map_update_pub =
-      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_updates", 1);
+      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_updates", rclcpp::QoS(1).durability_volatile().best_effort());
   }
   if (m_publish_overwrites)
   {
     m_map_overwrite_pub =
-      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_overwrites", 1);
+      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_overwrites", rclcpp::QoS(1).durability_volatile().best_effort());
   }
   if (m_publish_sections)
   {
     m_map_section_pub =
-      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_sections", 1);
+      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_sections", rclcpp::QoS(1).durability_volatile().best_effort());
 
     double section_update_rate;
     this->declare_parameter<double>("section_update.rate", 1);
