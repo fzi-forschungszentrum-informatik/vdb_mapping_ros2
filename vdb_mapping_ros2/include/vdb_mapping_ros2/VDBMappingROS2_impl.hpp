@@ -172,7 +172,9 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
 
   if (m_apply_raw_sensor_data)
   {
+    this->declare_parameter<std::vector<std::string> >("sources", std::vector<std::string>());
     this->get_parameter("sources", source_ids);
+
     for (auto& source_id : source_ids)
     {
       SensorSource sensor_source;
@@ -183,6 +185,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
       this->declare_parameter<double>(source_id + ".max_range", 0);
       this->get_parameter(source_id + ".max_range", sensor_source.max_range);
       RCLCPP_INFO_STREAM(this->get_logger(), "Setting up source: " << source_id);
+
       if (sensor_source.topic.empty())
       {
         RCLCPP_ERROR_STREAM(this->get_logger(),
