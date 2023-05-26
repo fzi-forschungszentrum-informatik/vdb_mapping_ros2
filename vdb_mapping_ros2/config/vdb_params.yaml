@@ -1,19 +1,30 @@
 /**:
   ros__parameters:
-    aligned_points: scan_matched_points2
-    raw_points: raw_points
-    sensor_frame: velodyne
+    # Basic setup
     map_frame: map
+    robot_frame: base_link
     max_range: 10.0
     resolution: 0.07
     prob_hit: 0.8
     prob_miss: 0.1
     thres_min: 0.12
     thres_max: 0.8
+    map_save_dir: ""
+
+    # Visualizations
     publish_pointcloud: true
     publish_vis_marker: true
+
+    # Sensor input
+    apply_raw_sensor_data: true
+    sources: [velodyne]
+    velodyne:
+      topic: scan_matched_points2
+      sensor_origin_frame: velodyne
+
+    # Remote mapping
     publish_updates: true
     publish_overwrites: true
-    apply_raw_sensor_data: true
-    reduce_data: false
-    map_save_dir: ""
+    publish_sections: true
+
+
