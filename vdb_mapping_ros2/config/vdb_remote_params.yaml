@@ -14,6 +14,7 @@
     # Visualizations
     publish_pointcloud: true
     publish_vis_marker: true
+    visualization_rate: 2
 
     # Sensor input
     apply_raw_sensor_data: false
@@ -21,7 +22,7 @@
     # Remote mapping
     publish_updates: false
     publish_overwrites: false
-    reduce_data: false
+    publish_sections: false
 
     remote_sources: [vdb_mapping]
     vdb_mapping:
