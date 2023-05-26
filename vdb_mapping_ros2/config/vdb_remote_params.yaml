@@ -14,7 +14,7 @@
     # Visualizations
     publish_pointcloud: true
     publish_vis_marker: true
-    visualization_rate: 2
+    visualization_rate: 2.0
 
     # Sensor input
     apply_raw_sensor_data: false

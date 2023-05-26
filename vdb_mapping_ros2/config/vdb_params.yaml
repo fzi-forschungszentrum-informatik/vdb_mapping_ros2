@@ -14,7 +14,7 @@
     # Visualizations
     publish_pointcloud: true
     publish_vis_marker: true
-    visualization_rate: 2
+    visualization_rate: 2.0
 
     # Sensor input
     apply_raw_sensor_data: true
@@ -28,14 +28,14 @@
     publish_overwrites: true
     publish_sections: true
     section_update:
-      rate: 1
+      rate: 1.0
       min_coord:
-        x: -10
-        y: -10
-        z: -10
+        x: -10.0
+        y: -10.0
+        z: -10.0
       max_coord:
-        x: 10
-        y: 10
-        z: 10
+        x: 10.0
+        y: 10.0
+        z: 10.0
 
 
