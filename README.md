@@ -136,3 +136,32 @@ Below are listed the parameters that can be used to configure the individual rem
 | ~/reset_map| std_srvs/Trigger | Resets the current map
 | ~/raytrace| vdb_mapping_msgs/Raytrace | Raytraces a point and returns coordinate where the ray first intersected the map
 | ~/trigger_map_section_update| vdb_mapping_msgs/TriggerMapSectionUpdate | Triggers a map section update on a remote instance
+
+
+## Citation
+
+Thanks that you read until here and please let us know if you run into any issues or have suggestions for improvements.
+If you use our work in your publications please feel free to cite our manuscript:
+```bibtex
+  @inproceedings{besselmann2021vdb,
+  title={VDB-Mapping: a high resolution and real-time capable 3D mapping framework for versatile mobile robots},
+  author={Besselmann, M Grosse and Puck, Lennart and Steffen, Lea and Roennau, Arne and Dillmann, R{\"u}diger},
+  booktitle={2021 IEEE 17th International Conference on Automation Science and Engineering (CASE)},
+  pages={448--454},
+  year={2021},
+  organization={IEEE}
+  doi={10.1109/CASE49439.2021.9551430}}
+}
+```
+or for the remote mapping case:
+```bibtex
+@incollection{besselmann2022remote,
+  title={Remote VDB-Mapping: A Level-Based Data Reduction Framework for Distributed Mapping},
+  author={Besselmann, Marvin Grosse and R{\"o}nnau, Arne and Dillmann, R{\"u}diger},
+  booktitle={Robotics in Natural Settings: CLAWAR 2022},
+  pages={448--459},
+  year={2022},
+  publisher={Springer}
+  doi={10.1007/978-3-031-15226-9_42}
+}
+```
