@@ -24,6 +24,9 @@ find_package(vdb_mapping_interfaces REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(PkgConfig)
+pkg_check_modules(ZSTD REQUIRED libzstd>=1.1.4)
+
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -62,6 +65,7 @@ add_library(vdb_mapping_ros2_component SHARED
   src/vdb_mapping_ros2_component.cpp
 )
 target_link_libraries(vdb_mapping_ros2_component
+  ${ZSTD_LIBRARIES}
   vdb_mapping::vdb_mapping
 )
 

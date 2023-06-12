@@ -429,6 +429,11 @@ private:
    * \brief Specifies the number of voxels which count as occupied for the occupancy grid
    */
   int m_two_dim_projection_threshold;
+
+  /*!
+   * \brief Compression level used for creating the byte array message.
+   */
+  unsigned int m_compression_level = 1;
 };
 
 

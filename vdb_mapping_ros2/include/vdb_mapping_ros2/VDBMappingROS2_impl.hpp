@@ -24,6 +24,9 @@
  */
 //----------------------------------------------------------------------
 
+#include <zstd.h>
+
+
 template <typename VDBMappingT>
 VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   : Node("vdb_mapping_ros2", options)
@@ -512,7 +515,27 @@ std::vector<uint8_t> VDBMappingROS2<VDBMappingT>::gridToByteArray(
   const typename VDBMappingT::UpdateGridT::Ptr update) const
 {
   std::string map_str = gridToStr(update);
-  return std::vector<uint8_t>(map_str.begin(), map_str.end());
+  auto uncompressed   = std::vector<uint8_t>(map_str.begin(), map_str.end());
+
+  size_t len = ZSTD_compressBound(uncompressed.size());
+  std::vector<uint8_t> compressed;
+  compressed.resize(len);
+
+  int ret = ZSTD_compress(compressed.data(),
+                          len, // dest
+                          uncompressed.data(),
+                          uncompressed.size(), // source
+                          m_compression_level);
+
+  if (ZSTD_isError(ret))
+  {
+    RCLCPP_ERROR(this->get_logger(),
+                 "Compression using ZSTD failed: '%s', sending uncompressed byte array",
+                 ZSTD_getErrorName(ret));
+
+    return uncompressed;
+  }
+  return compressed;
 }
 
 template <typename VDBMappingT>
@@ -541,9 +564,23 @@ template <typename VDBMappingT>
 typename VDBMappingT::UpdateGridT::Ptr
 VDBMappingROS2<VDBMappingT>::byteArrayToGrid(const std::vector<uint8_t>& msg) const
 {
-  std::string map_str(msg.begin(), msg.end());
+  std::size_t destLen = ZSTD_getDecompressedSize(msg.data(), msg.size());
+  std::vector<uint8_t> uncompressed;
+
+  std::size_t size = ZSTD_decompress(uncompressed.data(), destLen, msg.data(), msg.size());
+
+  if (ZSTD_isError(size))
+  {
+    RCLCPP_ERROR(
+      this->get_logger(), "Could not decompress map using ZSTD: %s", ZSTD_getErrorName(size));
+    return strToGrid("map_str");
+  }
+
+
+  std::string map_str(uncompressed.begin(), uncompressed.end());
   return strToGrid(map_str);
 }
+
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapUpdateCallback(
