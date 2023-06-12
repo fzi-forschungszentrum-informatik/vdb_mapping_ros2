@@ -517,15 +517,13 @@ std::vector<uint8_t> VDBMappingROS2<VDBMappingT>::gridToByteArray(
   std::string map_str = gridToStr(update);
   auto uncompressed   = std::vector<uint8_t>(map_str.begin(), map_str.end());
 
+  // Create buffer with enough size for worst case scenario
   size_t len = ZSTD_compressBound(uncompressed.size());
-  std::vector<uint8_t> compressed;
-  compressed.resize(len);
+  std::vector<uint8_t> compressed(len);
 
-  int ret = ZSTD_compress(compressed.data(),
-                          len, // dest
-                          uncompressed.data(),
-                          uncompressed.size(), // source
-                          m_compression_level);
+  int ret = ZSTD_compress(
+    compressed.data(), len, uncompressed.data(), uncompressed.size(), m_compression_level);
+
 
   if (ZSTD_isError(ret))
   {
@@ -535,6 +533,9 @@ std::vector<uint8_t> VDBMappingROS2<VDBMappingT>::gridToByteArray(
 
     return uncompressed;
   }
+
+  // Resize compressed buffer to actual compressed size
+  compressed.resize(ret);
   return compressed;
 }
 
@@ -564,18 +565,20 @@ template <typename VDBMappingT>
 typename VDBMappingT::UpdateGridT::Ptr
 VDBMappingROS2<VDBMappingT>::byteArrayToGrid(const std::vector<uint8_t>& msg) const
 {
-  std::size_t destLen = ZSTD_getDecompressedSize(msg.data(), msg.size());
-  std::vector<uint8_t> uncompressed;
+  std::size_t len = ZSTD_getDecompressedSize(msg.data(), msg.size());
+  std::vector<uint8_t> uncompressed(len);
 
-  std::size_t size = ZSTD_decompress(uncompressed.data(), destLen, msg.data(), msg.size());
+  std::size_t size = ZSTD_decompress(uncompressed.data(), len, msg.data(), msg.size());
+
 
   if (ZSTD_isError(size))
   {
-    RCLCPP_ERROR(
-      this->get_logger(), "Could not decompress map using ZSTD: %s", ZSTD_getErrorName(size));
-    return strToGrid("map_str");
+    RCLCPP_ERROR(this->get_logger(),
+                 "Could not decompress map using ZSTD: %s. Returning raw data.",
+                 ZSTD_getErrorName(size));
+    std::string map_str(msg.begin(), msg.end());
+    return strToGrid(map_str);
   }
-
 
   std::string map_str(uncompressed.begin(), uncompressed.end());
   return strToGrid(map_str);
