@@ -23,6 +23,7 @@ find_package(vdb_mapping REQUIRED)
 find_package(vdb_mapping_interfaces REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
+find_package(rclcpp_components REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -32,6 +33,7 @@ include_directories(include)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   rclcpp
+  rclcpp_components
   sensor_msgs
   std_msgs
   std_srvs
@@ -44,17 +46,20 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   pcl_conversions
 )
 
-add_executable(vdb_mapping_ros_node src/vdb_mapping_ros_node.cpp)
-
-target_link_libraries(vdb_mapping_ros_node
+add_library(vdb_mapping_ros2_component SHARED
+  src/vdb_mapping_ros2_component.cpp
+)
+target_link_libraries(vdb_mapping_ros2_component
   vdb_mapping::vdb_mapping
 )
 
-ament_target_dependencies(vdb_mapping_ros_node ${THIS_PACKAGE_INCLUDE_DEPENDS})
+ament_target_dependencies(vdb_mapping_ros2_component ${THIS_PACKAGE_INCLUDE_DEPENDS})
+rclcpp_components_register_nodes(vdb_mapping_ros2_component "vdb_mapping_ros2::vdb_mapping_ros2_component")
 
 install(TARGETS
-  vdb_mapping_ros_node
-  DESTINATION lib/${PROJECT_NAME})
+  vdb_mapping_ros2_component
+  DESTINATION lib
+)
 
 install(DIRECTORY
   launch
