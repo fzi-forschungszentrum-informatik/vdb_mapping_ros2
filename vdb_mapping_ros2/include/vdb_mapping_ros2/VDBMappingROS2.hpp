@@ -153,14 +153,14 @@ public:
    *
    * \returns VDB map
    */
-  VDBMappingT& getMap();
+  std::shared_ptr<VDBMappingT> getMap();
 
   /*!
    * \brief Returns the map
    *
    * \returns VDB map
    */
-  const VDBMappingT& getMap() const;
+  const std::shared_ptr<VDBMappingT> getMap() const;
 
   /*!
    * \brief Callback for map reset service call
@@ -364,7 +364,7 @@ private:
   /*!
    * \brief Map pointer
    */
-  std::unique_ptr<VDBMappingT> m_vdb_map;
+  std::shared_ptr<VDBMappingT> m_vdb_map;
   /*!
    * \brief Map configuration
    */

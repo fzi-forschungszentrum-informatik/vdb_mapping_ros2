@@ -35,7 +35,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
 
   this->declare_parameter<double>("resolution", 0.1);
   this->get_parameter("resolution", m_resolution);
-  m_vdb_map = std::make_unique<VDBMappingT>(m_resolution);
+  m_vdb_map = std::make_shared<VDBMappingT>(m_resolution);
 
   this->declare_parameter<double>("max_range", 10.0);
   this->get_parameter("max_range", m_config.max_range);
@@ -311,15 +311,15 @@ const std::string& VDBMappingROS2<VDBMappingT>::getMapFrame() const
 }
 
 template <typename VDBMappingT>
-VDBMappingT& VDBMappingROS2<VDBMappingT>::getMap()
+std::shared_ptr<VDBMappingT> VDBMappingROS2<VDBMappingT>::getMap()
 {
-  return *m_vdb_map;
+  return m_vdb_map;
 }
 
 template <typename VDBMappingT>
-const VDBMappingT& VDBMappingROS2<VDBMappingT>::getMap() const
+const std::shared_ptr<VDBMappingT> VDBMappingROS2<VDBMappingT>::getMap() const
 {
-  return *m_vdb_map;
+  return m_vdb_map;
 }
 
 template <typename VDBMappingT>
