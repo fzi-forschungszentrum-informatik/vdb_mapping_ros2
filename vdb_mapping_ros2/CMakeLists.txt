@@ -40,10 +40,22 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   tf2
   tf2_eigen
   tf2_ros
-  vdb_mapping
   vdb_mapping_interfaces
   visualization_msgs
   pcl_conversions
+)
+
+add_library(${PROJECT_NAME} INTERFACE)
+target_include_directories(${PROJECT_NAME}
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(${PROJECT_NAME} INTERFACE
+  vdb_mapping::vdb_mapping
+)
+ament_target_dependencies(${PROJECT_NAME} INTERFACE
+  ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 
 add_library(vdb_mapping_ros2_component SHARED
@@ -53,12 +65,28 @@ target_link_libraries(vdb_mapping_ros2_component
   vdb_mapping::vdb_mapping
 )
 
-ament_target_dependencies(vdb_mapping_ros2_component ${THIS_PACKAGE_INCLUDE_DEPENDS})
-rclcpp_components_register_nodes(vdb_mapping_ros2_component "vdb_mapping_ros2::vdb_mapping_ros2_component")
+ament_target_dependencies(vdb_mapping_ros2_component
+  ${THIS_PACKAGE_INCLUDE_DEPENDS}
+)
+rclcpp_components_register_nodes(vdb_mapping_ros2_component
+  "vdb_mapping_ros2::vdb_mapping_ros2_component"
+)
 
 install(TARGETS
   vdb_mapping_ros2_component
   DESTINATION lib
+)
+
+install(TARGETS ${PROJECT_NAME}
+  EXPORT "export_${PROJECT_NAME}"
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib
+  INCLUDES DESTINATION include
+)
+
+install(DIRECTORY include/
+  DESTINATION include
 )
 
 install(DIRECTORY
@@ -68,6 +96,7 @@ install(DIRECTORY
 install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME})
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -80,4 +109,8 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+ament_export_dependencies(
+  ${THIS_PACKAGE_INCLUDE_DEPENDS}
+)
+ament_export_targets("export_${PROJECT_NAME}")
 ament_package()

@@ -29,6 +29,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+#include <openvdb/openvdb.h>
 
 /*!
  * \brief Collection of VDBMapping helper functions and tools

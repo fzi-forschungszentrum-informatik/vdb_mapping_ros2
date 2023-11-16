@@ -29,9 +29,12 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <tf2/exceptions.h>
-#include <tf2_eigen/tf2_eigen.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
+
+#include <vdb_mapping/VDBMapping.h>
+#include <vdb_mapping/OccupancyVDBMapping.h>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
