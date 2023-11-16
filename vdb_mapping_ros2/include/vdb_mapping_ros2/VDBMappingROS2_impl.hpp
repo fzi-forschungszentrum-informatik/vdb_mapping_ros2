@@ -25,8 +25,8 @@
 //----------------------------------------------------------------------
 
 template <typename VDBMappingT>
-VDBMappingROS2<VDBMappingT>::VDBMappingROS2()
-  : Node("vdb_mapping_ros2")
+VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
+  : Node("vdb_mapping_ros2", options)
 {
   using namespace std::placeholders;
 
