@@ -25,11 +25,11 @@
 #ifndef VDB_MAPPING_ROS2_VDBMAPPINGTOOLS_H_INCLUDED
 #define VDB_MAPPING_ROS2_VDBMAPPINGTOOLS_H_INCLUDED
 #include <geometry_msgs/msg/point.hpp>
+#include <openvdb/openvdb.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <visualization_msgs/msg/marker.hpp>
-#include <openvdb/openvdb.h>
 
 /*!
  * \brief Collection of VDBMapping helper functions and tools

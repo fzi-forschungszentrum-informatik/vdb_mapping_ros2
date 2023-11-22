@@ -33,8 +33,8 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <vdb_mapping/VDBMapping.h>
 #include <vdb_mapping/OccupancyVDBMapping.h>
+#include <vdb_mapping/VDBMapping.h>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>

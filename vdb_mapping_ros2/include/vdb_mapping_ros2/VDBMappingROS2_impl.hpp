@@ -134,18 +134,18 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
 
   if (m_publish_updates)
   {
-    m_map_update_pub =
-      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_updates", rclcpp::QoS(1).durability_volatile().best_effort());
+    m_map_update_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
+      "~/vdb_map_updates", rclcpp::QoS(1).durability_volatile().best_effort());
   }
   if (m_publish_overwrites)
   {
-    m_map_overwrite_pub =
-      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_overwrites", rclcpp::QoS(1).durability_volatile().best_effort());
+    m_map_overwrite_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
+      "~/vdb_map_overwrites", rclcpp::QoS(1).durability_volatile().best_effort());
   }
   if (m_publish_sections)
   {
-    m_map_section_pub =
-      this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>("~/vdb_map_sections", rclcpp::QoS(1).durability_volatile().best_effort());
+    m_map_section_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
+      "~/vdb_map_sections", rclcpp::QoS(1).durability_volatile().best_effort());
 
     double section_update_rate;
     this->declare_parameter<double>("section_update.rate", 1);
@@ -508,8 +508,8 @@ VDBMappingROS2<VDBMappingT>::gridToStr(const typename VDBMappingT::UpdateGridT::
 }
 
 template <typename VDBMappingT>
-std::vector<uint8_t>
-VDBMappingROS2<VDBMappingT>::gridToByteArray(const typename VDBMappingT::UpdateGridT::Ptr update) const
+std::vector<uint8_t> VDBMappingROS2<VDBMappingT>::gridToByteArray(
+  const typename VDBMappingT::UpdateGridT::Ptr update) const
 {
   std::string map_str = gridToStr(update);
   return std::vector<uint8_t>(map_str.begin(), map_str.end());
