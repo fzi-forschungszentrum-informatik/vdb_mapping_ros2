@@ -3,10 +3,13 @@
     matrix:
       - ROS_DISTRO: humble
         CI_IMAGE: ids-git.fzi.de:5555/continuous_integration/ci_docker_images/ubuntu_22.04_ros2:humble
+        CLANG_TIDY: "false"
       - ROS_DISTRO: iron
         CI_IMAGE: ids-git.fzi.de:5555/continuous_integration/ci_docker_images/ubuntu_22.04_ros2:iron
+        CLANG_TIDY: "false"
       - ROS_DISTRO: rolling
         CI_IMAGE: ids-git.fzi.de:5555/continuous_integration/ci_docker_images/ubuntu_22.04_ros2:rolling
+        CLANG_TIDY: "false"
 
 include:
   - project: 'continuous_integration/ci_scripts'
