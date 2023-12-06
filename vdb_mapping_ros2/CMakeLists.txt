@@ -24,6 +24,7 @@ find_package(vdb_mapping_interfaces REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(rclcpp_components REQUIRED)
+#find_package(zstd REQUIRED)
 find_package(PkgConfig)
 pkg_check_modules(ZSTD REQUIRED libzstd>=1.1.4)
 
@@ -55,6 +56,7 @@ target_include_directories(${PROJECT_NAME}
     $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(${PROJECT_NAME} INTERFACE
+  ${ZSTD_LIBRARIES}
   vdb_mapping::vdb_mapping
 )
 ament_target_dependencies(${PROJECT_NAME} INTERFACE
