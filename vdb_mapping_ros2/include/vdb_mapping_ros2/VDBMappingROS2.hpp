@@ -92,6 +92,11 @@ public:
   bool saveMap(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
   /*!
+   * \brief Saves the active values of the current map as PCD file 
+   */
+  bool saveMapToPCD(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+               const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+  /*!
    * \brief Load stored map
    */
   bool loadMap(const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Request> req,
@@ -320,6 +325,11 @@ private:
    * \brief Saves map in specified path from parameter server
    */
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr m_save_map_service;
+  /*!
+   * \brief Saves the active values of the map as PCD file in the specified path from the paramter
+   * server
+   */
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr m_save_map_to_pcd_service;
   /*!
    * \brief Loads a map from specified path from service
    */

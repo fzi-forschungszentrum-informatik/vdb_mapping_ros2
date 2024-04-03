@@ -299,6 +299,17 @@ bool VDBMappingROS2<VDBMappingT>::saveMap(
 }
 
 template <typename VDBMappingT>
+bool VDBMappingROS2<VDBMappingT>::saveMapToPCD(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+  const std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+  (void)req;
+  RCLCPP_INFO(this->get_logger(), "Saving Map to PCD");
+  res->success = m_vdb_map->saveMapToPCD();
+  return res->success;
+}
+
+template <typename VDBMappingT>
 bool VDBMappingROS2<VDBMappingT>::loadMap(
   const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Request> req,
   const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Response> res)
