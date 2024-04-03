@@ -225,6 +225,9 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   m_load_map_service = this->create_service<vdb_mapping_interfaces::srv::LoadMap>(
     "~/load_map", std::bind(&VDBMappingROS2::loadMap, this, _1, _2));
 
+  m_load_map_from_pcd_service = this->create_service<vdb_mapping_interfaces::srv::LoadMapFromPCD>(
+    "~/load_map_from_pcd", std::bind(&VDBMappingROS2::loadMapFromPCD, this, _1, _2));
+
   m_get_map_section_service = this->create_service<vdb_mapping_interfaces::srv::GetMapSection>(
     "~/get_map_section", std::bind(&VDBMappingROS2::getMapSectionCallback, this, _1, _2));
 
@@ -306,6 +309,19 @@ bool VDBMappingROS2<VDBMappingT>::loadMap(
   res->success = success;
   return success;
 }
+
+template <typename VDBMappingT>
+bool VDBMappingROS2<VDBMappingT>::loadMapFromPCD(
+  const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMapFromPCD::Request> req,
+  const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMapFromPCD::Response> res)
+{
+  RCLCPP_INFO(this->get_logger(), "Loading Map from PCD file");
+  bool success = m_vdb_map->loadMapFromPCD(req->path, req->set_background, req->clear_map);
+  publishMap();
+  res->success = success;
+  return success;
+}
+
 
 template <typename VDBMappingT>
 const std::string& VDBMappingROS2<VDBMappingT>::getMapFrame() const

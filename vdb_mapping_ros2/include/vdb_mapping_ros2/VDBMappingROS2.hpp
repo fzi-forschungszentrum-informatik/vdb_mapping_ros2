@@ -43,6 +43,7 @@
 #include <vdb_mapping_interfaces/srv/get_map_section.hpp>
 #include <vdb_mapping_interfaces/srv/get_occ_grid.hpp>
 #include <vdb_mapping_interfaces/srv/load_map.hpp>
+#include <vdb_mapping_interfaces/srv/load_map_from_pcd.hpp>
 #include <vdb_mapping_interfaces/srv/raytrace.hpp>
 #include <vdb_mapping_interfaces/srv/trigger_map_section_update.hpp>
 #include <visualization_msgs/msg/marker.hpp>
@@ -95,6 +96,13 @@ public:
    */
   bool loadMap(const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Request> req,
                const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMap::Response> res);
+
+  /*!
+   * \brief Load stored map
+   */
+  bool
+  loadMapFromPCD(const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMapFromPCD::Request> req,
+                 const std::shared_ptr<vdb_mapping_interfaces::srv::LoadMapFromPCD::Response> res);
   /*!
    * \brief Sensor callback for Pointclouds
    *
@@ -316,6 +324,11 @@ private:
    * \brief Loads a map from specified path from service
    */
   rclcpp::Service<vdb_mapping_interfaces::srv::LoadMap>::SharedPtr m_load_map_service;
+  /*!
+   * \brief Generates a map from a PCD file specified by the path from service
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::LoadMapFromPCD>::SharedPtr
+    m_load_map_from_pcd_service;
   /*!
    * \brief Service for reset map
    */
