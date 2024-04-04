@@ -92,10 +92,10 @@ public:
   bool saveMap(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
                const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
   /*!
-   * \brief Saves the active values of the current map as PCD file 
+   * \brief Saves the active values of the current map as PCD file
    */
   bool saveMapToPCD(const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
-               const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
+                    const std::shared_ptr<std_srvs::srv::Trigger::Response> res);
   /*!
    * \brief Load stored map
    */
