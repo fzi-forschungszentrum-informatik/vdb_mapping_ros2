@@ -40,11 +40,13 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <vdb_mapping_interfaces/srv/add_points_to_grid.hpp>
 #include <vdb_mapping_interfaces/srv/get_map_section.hpp>
 #include <vdb_mapping_interfaces/srv/get_occ_grid.hpp>
 #include <vdb_mapping_interfaces/srv/load_map.hpp>
 #include <vdb_mapping_interfaces/srv/load_map_from_pcd.hpp>
 #include <vdb_mapping_interfaces/srv/raytrace.hpp>
+#include <vdb_mapping_interfaces/srv/remove_points_from_grid.hpp>
 #include <vdb_mapping_interfaces/srv/trigger_map_section_update.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
@@ -209,6 +211,30 @@ public:
     const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Response> res);
 
   /*!
+   * \brief Callback for adding points directly into the grid
+   *
+   * \param req Pointcloud which should be added into the grid
+   * \param res Result of adding points request
+   *
+   * \returns Result of adding points request
+   */
+  bool addPointsToGridCallback(
+    const std::shared_ptr<vdb_mapping_interfaces::srv::AddPointsToGrid::Request> req,
+    const std::shared_ptr<vdb_mapping_interfaces::srv::AddPointsToGrid::Response> res);
+
+  /*!
+   * \brief Callback for removing points directly from the grid
+   *
+   * \param req Pointcloud which should be removed from the grid
+   * \param res Result of removing points request
+   *
+   * \returns Result of removing points request
+   */
+  bool removePointsFromGridCallback(
+    const std::shared_ptr<vdb_mapping_interfaces::srv::RemovePointsFromGrid::Request> req,
+    const std::shared_ptr<vdb_mapping_interfaces::srv::RemovePointsFromGrid::Response> res);
+
+  /*!
    * \brief Callback for occupancy grid service call
    *
    * \param req Trigger request
@@ -364,6 +390,16 @@ private:
    */
   rclcpp::Service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>::SharedPtr
     m_trigger_map_section_update_service;
+  /*!
+   * \brief Service for adding points directly into the grid.
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::AddPointsToGrid>::SharedPtr
+    m_add_points_to_grid_service;
+  /*!
+   * \brief Service for removing points directly from the grid.
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::RemovePointsFromGrid>::SharedPtr
+    m_remove_points_from_grid_service;
   /*!
    * \brief Transformation buffer
    */

@@ -239,6 +239,14 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   m_raytrace_service = this->create_service<vdb_mapping_interfaces::srv::Raytrace>(
     "~/raytrace", std::bind(&VDBMappingROS2::raytraceCallback, this, _1, _2));
 
+  m_add_points_to_grid_service = this->create_service<vdb_mapping_interfaces::srv::AddPointsToGrid>(
+    "~/add_points_to_grid", std::bind(&VDBMappingROS2::addPointsToGridCallback, this, _1, _2));
+
+  m_remove_points_from_grid_service =
+    this->create_service<vdb_mapping_interfaces::srv::RemovePointsFromGrid>(
+      "~/remove_points_from_grid",
+      std::bind(&VDBMappingROS2::removePointsFromGridCallback, this, _1, _2));
+
   m_pointcloud_pub =
     this->create_publisher<sensor_msgs::msg::PointCloud2>("~/vdb_map_pointcloud", 1);
   m_visualization_marker_pub =
@@ -468,6 +476,28 @@ bool VDBMappingROS2<VDBMappingT>::raytraceCallback(
     RCLCPP_ERROR_STREAM(this->get_logger(), "Transform to map frame failed: " << ex.what());
     res->success = false;
   }
+  return true;
+}
+
+template <typename VDBMappingT>
+bool VDBMappingROS2<VDBMappingT>::addPointsToGridCallback(
+  const std::shared_ptr<vdb_mapping_interfaces::srv::AddPointsToGrid::Request> req,
+  const std::shared_ptr<vdb_mapping_interfaces::srv::AddPointsToGrid::Response> res)
+{
+  typename VDBMappingT::PointCloudT::Ptr cloud(new typename VDBMappingT::PointCloudT);
+  pcl::fromROSMsg(req->points, *cloud);
+  res->success = m_vdb_map->addPointsToGrid(cloud);
+  return true;
+}
+
+template <typename VDBMappingT>
+bool VDBMappingROS2<VDBMappingT>::removePointsFromGridCallback(
+  const std::shared_ptr<vdb_mapping_interfaces::srv::RemovePointsFromGrid::Request> req,
+  const std::shared_ptr<vdb_mapping_interfaces::srv::RemovePointsFromGrid::Response> res)
+{
+  typename VDBMappingT::PointCloudT::Ptr cloud(new typename VDBMappingT::PointCloudT);
+  pcl::fromROSMsg(req->points, *cloud);
+  res->success = m_vdb_map->removePointsFromGrid(cloud);
   return true;
 }
 
