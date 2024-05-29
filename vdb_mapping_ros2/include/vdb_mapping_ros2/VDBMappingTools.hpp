@@ -56,7 +56,9 @@ public:
                                   visualization_msgs::msg::Marker& marker_msg,
                                   sensor_msgs::msg::PointCloud2& cloud_msg,
                                   bool create_marker,
-                                  bool create_pointcloud);
+                                  bool create_pointcloud,
+                                  double lower_z_limit = 0.0,
+                                  double upper_z_limit = 0.0);
   /*!
    * \brief Calculates a height correlating color coding using HSV color space
    *

@@ -436,6 +436,11 @@ private:
    * \brief Compression level used for creating the byte array message.
    */
   unsigned int m_compression_level = 1;
+  std::shared_ptr<rclcpp::ParameterEventHandler> m_param_sub;
+  std::shared_ptr<rclcpp::ParameterCallbackHandle> m_z_min_param_handle;
+  std::shared_ptr<rclcpp::ParameterCallbackHandle> m_z_max_param_handle;
+  double m_lower_visualization_z_limit;
+  double m_upper_visualization_z_limit;
 };
 
 

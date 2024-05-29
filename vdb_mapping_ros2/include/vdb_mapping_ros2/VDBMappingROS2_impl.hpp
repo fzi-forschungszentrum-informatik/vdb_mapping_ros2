@@ -70,6 +70,24 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   this->get_parameter("apply_raw_sensor_data", m_apply_raw_sensor_data);
 
 
+  this->declare_parameter<double>("z_limit_min", 0);
+  this->get_parameter("z_limit_min", m_lower_visualization_z_limit);
+  this->declare_parameter<double>("z_limit_max", 0);
+  this->get_parameter("z_limit_max", m_upper_visualization_z_limit);
+
+  m_param_sub = std::make_shared<rclcpp::ParameterEventHandler>(this);
+
+  auto min_z_cb = [this](const rclcpp::Parameter &p) {
+    m_lower_visualization_z_limit = p.as_double();
+  };
+  auto max_z_cb = [this](const rclcpp::Parameter &p) {
+    m_upper_visualization_z_limit = p.as_double();
+  };
+
+  m_z_min_param_handle = m_param_sub->add_parameter_callback("z_limit_min", min_z_cb);
+  m_z_min_param_handle = m_param_sub->add_parameter_callback("z_limit_max", max_z_cb);
+
+
   this->declare_parameter<std::string>("map_frame", "");
   this->get_parameter("map_frame", m_map_frame);
   if (m_map_frame.empty())
@@ -767,7 +785,9 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
                                                     visualization_marker_msg,
                                                     cloud_msg,
                                                     m_publish_vis_marker,
-                                                    m_publish_pointcloud);
+                                                    m_publish_pointcloud,
+                                                    m_lower_visualization_z_limit,
+                                                    m_upper_visualization_z_limit);
   if (publish_vis_marker)
   {
     visualization_marker_msg.header.stamp = this->now();
