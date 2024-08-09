@@ -404,7 +404,7 @@ bool VDBMappingROS2<VDBMappingT>::getMapSectionCallback(
     res->success = false;
     return true;
   }
-  res->section = gridToMsg(
+  res->section.map = gridToByteArray(
     m_vdb_map->getMapSectionUpdateGrid(Eigen::Matrix<double, 3, 1>(req->bounding_box.min_corner.x,
                                                                    req->bounding_box.min_corner.y,
                                                                    req->bounding_box.min_corner.z),
@@ -571,15 +571,6 @@ void VDBMappingROS2<VDBMappingT>::sectionTimerCallback()
 }
 
 template <typename VDBMappingT>
-vdb_mapping_interfaces::msg::UpdateGrid
-VDBMappingROS2<VDBMappingT>::gridToMsg(const typename VDBMappingT::UpdateGridT::Ptr update) const
-{
-  vdb_mapping_interfaces::msg::UpdateGrid msg;
-  msg.map = gridToByteArray(update);
-  return msg;
-}
-
-template <typename VDBMappingT>
 std::string
 VDBMappingROS2<VDBMappingT>::gridToStr(const typename VDBMappingT::UpdateGridT::Ptr update) const
 {
@@ -617,13 +608,6 @@ std::vector<uint8_t> VDBMappingROS2<VDBMappingT>::gridToByteArray(
   // Resize compressed buffer to actual compressed size
   compressed.resize(ret);
   return compressed;
-}
-
-template <typename VDBMappingT>
-typename VDBMappingT::UpdateGridT::Ptr VDBMappingROS2<VDBMappingT>::msgToGrid(
-  const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> msg) const
-{
-  return byteArrayToGrid(msg->map);
 }
 
 template <typename VDBMappingT>
@@ -669,21 +653,21 @@ template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapUpdateCallback(
   const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
-  m_vdb_map->updateMap(msgToGrid(update_msg));
+  m_vdb_map->updateMap(byteArrayToGrid(update_msg->map));
 }
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapOverwriteCallback(
   const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
-  m_vdb_map->overwriteMap(msgToGrid(update_msg));
+  m_vdb_map->overwriteMap(byteArrayToGrid(update_msg->map));
 }
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapSectionCallback(
   const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
-  m_vdb_map->applyMapSectionUpdateGrid(msgToGrid(update_msg));
+  m_vdb_map->applyMapSectionUpdateGrid(byteArrayToGrid(update_msg->map));
 }
 
 template <typename VDBMappingT>
@@ -826,14 +810,16 @@ void VDBMappingROS2<VDBMappingT>::publishUpdates(typename VDBMappingT::UpdateGri
   header.stamp    = stamp;
   if (m_publish_updates)
   {
-    vdb_mapping_interfaces::msg::UpdateGrid msg = gridToMsg(update);
-    msg.header                                  = header;
+    vdb_mapping_interfaces::msg::UpdateGrid msg;
+    msg.map    = gridToByteArray(update);
+    msg.header = header;
     m_map_update_pub->publish(msg);
   }
   if (m_publish_overwrites)
   {
-    vdb_mapping_interfaces::msg::UpdateGrid msg = gridToMsg(overwrite);
-    msg.header                                  = header;
+    vdb_mapping_interfaces::msg::UpdateGrid msg;
+    msg.map    = gridToByteArray(overwrite);
+    msg.header = header;
     m_map_update_pub->publish(msg);
   }
 }

@@ -260,17 +260,6 @@ public:
   void accumulationUpdateTimerCallback();
   void sectionTimerCallback();
 
-
-  /*!
-   * \brief Creates a compressed Bitstream as ROS2 msg from an input grid
-   *
-   * \param update Update grid
-   *
-   * \returns bitstream
-   */
-  vdb_mapping_interfaces::msg::UpdateGrid
-  gridToMsg(const typename VDBMappingT::UpdateGridT::Ptr update) const;
-
   /*!
    * \brief Creates a compressed Bitstream as string from an input grid
    *
@@ -288,16 +277,6 @@ public:
    * \returns vector of uint8_t representing the grid
    */
   std::vector<uint8_t> gridToByteArray(const typename VDBMappingT::UpdateGridT::Ptr update) const;
-
-  /*!
-   * \brief Unpacks an update grid from a compressed bitstream
-   *
-   * \param msg Compressed Bitstream
-   *
-   * \returns Update Grid
-   */
-  typename VDBMappingT::UpdateGridT::Ptr
-  msgToGrid(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> msg) const;
 
   /*!
    * \brief Unpacks an update grid from a std::string
