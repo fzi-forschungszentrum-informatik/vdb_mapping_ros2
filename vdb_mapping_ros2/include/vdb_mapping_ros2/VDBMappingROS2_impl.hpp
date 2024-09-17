@@ -163,11 +163,11 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
     this->get_parameter("section_update.min_coord.y", m_section_min_coord.y());
     this->declare_parameter<double>("section_update.min_coord.z", -10);
     this->get_parameter("section_update.min_coord.z", m_section_min_coord.z());
-    this->declare_parameter<double>("section_update.max_coord.x", -10);
+    this->declare_parameter<double>("section_update.max_coord.x", 10);
     this->get_parameter("section_update.max_coord.x", m_section_max_coord.x());
-    this->declare_parameter<double>("section_update.max_coord.y", -10);
+    this->declare_parameter<double>("section_update.max_coord.y", 10);
     this->get_parameter("section_update.max_coord.y", m_section_max_coord.y());
-    this->declare_parameter<double>("section_update.max_coord.z", -10);
+    this->declare_parameter<double>("section_update.max_coord.z", 10);
     this->get_parameter("section_update.max_coord.z", m_section_max_coord.z());
     this->declare_parameter<std::string>("section_update.frame", m_robot_frame);
     this->get_parameter("section_update.frame", m_section_update_frame);
