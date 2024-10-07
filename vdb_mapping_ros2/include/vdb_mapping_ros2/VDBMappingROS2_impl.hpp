@@ -209,7 +209,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
 
       m_cloud_subs.push_back(this->create_subscription<sensor_msgs::msg::PointCloud2>(
         sensor_source.topic,
-        1,
+        rclcpp::QoS(1).durability_volatile().best_effort(),
         [&, sensor_source](const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg) {
           cloudCallback(cloud_msg, sensor_source);
         }));
