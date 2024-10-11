@@ -258,9 +258,12 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   double visualization_rate;
   this->declare_parameter<double>("visualization_rate", 1.0);
   this->get_parameter("visualization_rate", visualization_rate);
-  m_visualization_timer =
-    this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / visualization_rate)),
-                            std::bind(&VDBMappingROS2::visualizationTimerCallback, this));
+  if(visualization_rate > 0.0)
+  {
+    m_visualization_timer =
+      this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / visualization_rate)),
+                              std::bind(&VDBMappingROS2::visualizationTimerCallback, this));
+  }
 
   this->declare_parameter<bool>("accumulate_updates", false);
   this->get_parameter("accumulate_updates", m_accumulate_updates);
@@ -273,6 +276,26 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
       this->create_wall_timer(std::chrono::milliseconds((int)(1000 * accumulation_period)),
                               std::bind(&VDBMappingROS2::accumulationUpdateTimerCallback, this));
   }
+
+  // Load initial map file
+  std::string initial_map_file;
+  bool set_background;
+  bool clear_map;
+  this->declare_parameter<std::string>("map_server.initial_map_file", "");
+  this->get_parameter("map_server.initial_map_file", initial_map_file);
+  RCLCPP_INFO_STREAM(this->get_logger(), "Loading intial Map " << initial_map_file);
+  this->declare_parameter<bool>("map_server.set_background", false);
+  this->get_parameter("map_server.set_background", set_background);
+  this->declare_parameter<bool>("map_server.clear_map", false);
+  this->get_parameter("map_server.clear_map", clear_map);
+  if(initial_map_file !="")
+  {
+
+    RCLCPP_INFO_STREAM(this->get_logger(), "Loading intial Map " << initial_map_file);
+    m_vdb_map->loadMapFromPCD(initial_map_file, set_background, clear_map);
+    publishMap();
+  }
+
 }
 
 template <typename VDBMappingT>
@@ -818,6 +841,7 @@ void VDBMappingROS2<VDBMappingT>::publishUpdates(typename VDBMappingT::UpdateGri
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::publishMap() const
 {
+
   if (!(m_publish_pointcloud || m_publish_vis_marker))
   {
     return;
