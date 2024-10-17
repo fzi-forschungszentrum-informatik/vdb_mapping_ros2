@@ -260,42 +260,6 @@ public:
   void accumulationUpdateTimerCallback();
   void sectionTimerCallback();
 
-  /*!
-   * \brief Creates a compressed Bitstream as string from an input grid
-   *
-   * \param update Update grid
-   *
-   * \returns bitstream
-   */
-  std::string gridToStr(const typename VDBMappingT::UpdateGridT::Ptr update) const;
-
-  /*!
-   * \brief Creates a compressed Bitstream as std::vector<uint8_t> from an input grid
-   *
-   * \param update Update grid
-   *
-   * \returns vector of uint8_t representing the grid
-   */
-  std::vector<uint8_t> gridToByteArray(const typename VDBMappingT::UpdateGridT::Ptr update) const;
-
-  /*!
-   * \brief Unpacks an update grid from a std::string
-   *
-   * \param msg Compressed Bitstream as std::string
-   *
-   * \returns Update Grid
-   */
-  typename VDBMappingT::UpdateGridT::Ptr strToGrid(const std::string& msg) const;
-
-  /*!
-   * \brief Unpacks an update grid from a byte Vector
-   *
-   * \param msg Compressed Bitstream as std::vector<uint8_t>
-   *
-   * \returns Update Grid
-   */
-  typename VDBMappingT::UpdateGridT::Ptr byteArrayToGrid(const std::vector<uint8_t>& msg) const;
-
 private:
   std::vector<rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr> m_cloud_subs;
   /*!
