@@ -256,7 +256,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   double visualization_rate;
   this->declare_parameter<double>("visualization_rate", 1.0);
   this->get_parameter("visualization_rate", visualization_rate);
-  if(visualization_rate > 0.0)
+  if (visualization_rate > 0.0)
   {
     m_visualization_timer =
       this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / visualization_rate)),
@@ -286,14 +286,12 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   this->get_parameter("map_server.set_background", set_background);
   this->declare_parameter<bool>("map_server.clear_map", false);
   this->get_parameter("map_server.clear_map", clear_map);
-  if(initial_map_file !="")
+  if (initial_map_file != "")
   {
-
     RCLCPP_INFO_STREAM(this->get_logger(), "Loading intial Map " << initial_map_file);
     m_vdb_map->loadMapFromPCD(initial_map_file, set_background, clear_map);
     publishMap();
   }
-
 }
 
 template <typename VDBMappingT>
@@ -447,7 +445,9 @@ bool VDBMappingROS2<VDBMappingT>::triggerMapSectionUpdateCallback(
     auto response = result.get();
     if (response->success)
     {
-      m_vdb_map->overwriteMap(m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(response->section.map));
+      m_vdb_map->overwriteMap(
+        m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(
+          response->section.map));
     }
     res->success = response->success;
   }
@@ -564,7 +564,7 @@ void VDBMappingROS2<VDBMappingT>::sectionTimerCallback()
   vdb_mapping_interfaces::msg::UpdateGrid msg;
   msg.header.frame_id = m_map_frame;
   msg.header.stamp    = map_to_robot_tf.header.stamp;
-  msg.map             = m_vdb_map->template gridToByteArray<typename VDBMappingT::UpdateGridT>(section);
+  msg.map = m_vdb_map->template gridToByteArray<typename VDBMappingT::UpdateGridT>(section);
   m_map_section_pub->publish(msg);
 }
 
@@ -572,21 +572,24 @@ template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapUpdateCallback(
   const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
-  m_vdb_map->updateMap(m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
+  m_vdb_map->updateMap(
+    m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
 }
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapOverwriteCallback(
   const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
-  m_vdb_map->overwriteMap(m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
+  m_vdb_map->overwriteMap(
+    m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
 }
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapSectionCallback(
   const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
-  m_vdb_map->applyMapSectionUpdateGrid(m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
+  m_vdb_map->applyMapSectionUpdateGrid(
+    m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
 }
 
 template <typename VDBMappingT>
@@ -746,7 +749,6 @@ void VDBMappingROS2<VDBMappingT>::publishUpdates(typename VDBMappingT::UpdateGri
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::publishMap() const
 {
-
   if (!(m_publish_pointcloud || m_publish_vis_marker))
   {
     return;
