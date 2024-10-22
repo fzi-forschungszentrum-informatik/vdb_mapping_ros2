@@ -487,7 +487,7 @@ bool VDBMappingROS2<VDBMappingT>::raytraceCallback(
   try
   {
     reference_tf =
-      m_tf_buffer->lookupTransform(m_map_frame, req->header.frame_id.c_str(), req->header.stamp);
+      m_tf_buffer->lookupTransform(m_map_frame, req->header.frame_id.c_str(), req->header.stamp, rclcpp::Duration(0,100000000));
 
     Eigen::Matrix<double, 4, 4> m = tf2::transformToEigen(reference_tf).matrix();
     Eigen::Matrix<double, 4, 1> origin, direction;
@@ -701,7 +701,7 @@ void VDBMappingROS2<VDBMappingT>::cloudCallback(
     try
     {
       origin_to_map_tf = m_tf_buffer->lookupTransform(
-        m_map_frame, cloud_msg->header.frame_id, cloud_msg->header.stamp);
+        m_map_frame, cloud_msg->header.frame_id, cloud_msg->header.stamp, rclcpp::Duration(0, 100000000));
     }
     catch (tf2::TransformException& ex)
     {
