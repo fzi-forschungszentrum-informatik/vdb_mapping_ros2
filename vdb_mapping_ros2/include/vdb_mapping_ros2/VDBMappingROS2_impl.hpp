@@ -60,12 +60,14 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   this->get_parameter("publish_pointcloud", m_publish_pointcloud);
   this->declare_parameter<bool>("publish_vis_marker", true);
   this->get_parameter("publish_vis_marker", m_publish_vis_marker);
-  this->declare_parameter<bool>("publish_updates", true);
+  this->declare_parameter<bool>("publish_updates", false);
   this->get_parameter("publish_updates", m_publish_updates);
-  this->declare_parameter<bool>("publish_overwrites", true);
+  this->declare_parameter<bool>("publish_overwrites", false);
   this->get_parameter("publish_overwrites", m_publish_overwrites);
-  this->declare_parameter<bool>("publish_sections", true);
+  this->declare_parameter<bool>("publish_sections", false);
   this->get_parameter("publish_sections", m_publish_sections);
+  this->declare_parameter<bool>("publish_full_sections", false);
+  this->get_parameter("publish_full_sections", m_publish_full_sections);
   this->declare_parameter<bool>("apply_raw_sensor_data", true);
   this->get_parameter("apply_raw_sensor_data", m_apply_raw_sensor_data);
 
@@ -121,6 +123,8 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
                         remote_source.apply_remote_overwrites);
     this->declare_parameter<bool>(source_id + ".apply_remote_sections", false);
     this->get_parameter(source_id + ".apply_remote_sections", remote_source.apply_remote_sections);
+    this->declare_parameter<bool>(source_id + ".apply_remote_full_sections", false);
+    this->get_parameter(source_id + ".apply_remote_full_sections", remote_source.apply_remote_full_sections);
     if (remote_source.apply_remote_updates)
     {
       remote_source.map_update_sub =
@@ -145,9 +149,20 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
           rclcpp::QoS(10).durability_volatile().best_effort(),
           std::bind(&VDBMappingROS2::mapSectionCallback, this, _1));
     }
+    if (remote_source.apply_remote_full_sections)
+    {
+      remote_source.map_full_section_sub =
+        this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
+          remote_namespace + "/vdb_map_full_sections",
+          rclcpp::QoS(10).durability_volatile().best_effort(),
+          std::bind(&VDBMappingROS2::mapFullSectionCallback, this, _1));
+    }
     remote_source.get_map_section_client =
       this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
                                                                       "/get_map_section");
+    remote_source.get_map_full_section_client =
+      this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
+                                                                      "/get_map_full_section");
     m_remote_sources.insert(std::make_pair(source_id, remote_source));
   }
 
@@ -172,6 +187,33 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
     m_section_timer =
       this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
                               std::bind(&VDBMappingROS2::sectionTimerCallback, this));
+
+    this->declare_parameter<double>("section_update.min_coord.x", -10);
+    this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
+    this->declare_parameter<double>("section_update.min_coord.y", -10);
+    this->get_parameter("section_update.min_coord.y", m_section_min_coord.y());
+    this->declare_parameter<double>("section_update.min_coord.z", -10);
+    this->get_parameter("section_update.min_coord.z", m_section_min_coord.z());
+    this->declare_parameter<double>("section_update.max_coord.x", 10);
+    this->get_parameter("section_update.max_coord.x", m_section_max_coord.x());
+    this->declare_parameter<double>("section_update.max_coord.y", 10);
+    this->get_parameter("section_update.max_coord.y", m_section_max_coord.y());
+    this->declare_parameter<double>("section_update.max_coord.z", 10);
+    this->get_parameter("section_update.max_coord.z", m_section_max_coord.z());
+    this->declare_parameter<std::string>("section_update.frame", m_robot_frame);
+    this->get_parameter("section_update.frame", m_section_update_frame);
+  }
+  if (m_publish_full_sections)
+  {
+    m_map_section_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
+      "~/vdb_map_full_sections", rclcpp::QoS(1).durability_volatile().best_effort());
+
+    double section_update_rate;
+    this->declare_parameter<double>("section_update.rate", 1);
+    this->get_parameter("section_update.rate", section_update_rate);
+    m_full_section_timer =
+      this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
+                              std::bind(&VDBMappingROS2::fullSectionTimerCallback, this));
 
     this->declare_parameter<double>("section_update.min_coord.x", -10);
     this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
@@ -251,6 +293,11 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
     this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
       "~/trigger_map_section_update",
       std::bind(&VDBMappingROS2::triggerMapSectionUpdateCallback, this, _1, _2));
+  
+  m_trigger_map_full_section_update_service =
+    this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
+      "~/trigger_map_full_section_update",
+      std::bind(&VDBMappingROS2::triggerMapFullSectionUpdateCallback, this, _1, _2));
 
   m_raytrace_service = this->create_service<vdb_mapping_interfaces::srv::Raytrace>(
     "~/raytrace", std::bind(&VDBMappingROS2::raytraceCallback, this, _1, _2));
@@ -479,6 +526,51 @@ bool VDBMappingROS2<VDBMappingT>::triggerMapSectionUpdateCallback(
 }
 
 template <typename VDBMappingT>
+bool VDBMappingROS2<VDBMappingT>::triggerMapFullSectionUpdateCallback(
+  const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Request> req,
+  const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Response> res)
+{
+  auto remote_source = m_remote_sources.find(req->remote_source);
+  if (remote_source == m_remote_sources.end())
+  {
+    std::stringstream ss;
+    ss << "Key " << req->remote_source << " not found. Available sources are: ";
+    for (auto& source : m_remote_sources)
+    {
+      ss << source.first << ", ";
+    }
+    RCLCPP_WARN(this->get_logger(), ss.str().c_str());
+    res->success = false;
+    return true;
+  }
+
+  auto request = std::make_shared<vdb_mapping_interfaces::srv::GetMapSection::Request>();
+
+  request->header       = req->header;
+  request->bounding_box = req->bounding_box;
+  auto result           = remote_source->second.get_map_full_section_client->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
+      rclcpp::FutureReturnCode::SUCCESS)
+  {
+    auto response = result.get();
+    if (response->success)
+    {
+      m_vdb_map->overwriteMap(
+        m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(
+          response->section.map));
+    }
+    res->success = response->success;
+  }
+  else
+  {
+    RCLCPP_ERROR(this->get_logger(), "Failed to call servcie get_map_section");
+    res->success = false;
+  }
+
+  return true;
+}
+
+template <typename VDBMappingT>
 bool VDBMappingROS2<VDBMappingT>::raytraceCallback(
   const std::shared_ptr<vdb_mapping_interfaces::srv::Raytrace::Request> req,
   const std::shared_ptr<vdb_mapping_interfaces::srv::Raytrace::Response> res)
@@ -587,6 +679,35 @@ void VDBMappingROS2<VDBMappingT>::sectionTimerCallback()
 }
 
 template <typename VDBMappingT>
+void VDBMappingROS2<VDBMappingT>::fullSectionTimerCallback()
+{
+  geometry_msgs::msg::TransformStamped map_to_robot_tf;
+  try
+  {
+    // Get sensor origin transform in map coordinates
+    map_to_robot_tf = m_tf_buffer->lookupTransform(
+      m_map_frame, m_section_update_frame, rclcpp::Time(0), rclcpp::Duration(1, 0));
+  }
+  catch (tf2::TransformException& ex)
+  {
+    RCLCPP_ERROR(this->get_logger(),
+                 "Could not transform %s to %s: %s",
+                 m_map_frame.c_str(),
+                 m_section_update_frame.c_str(),
+                 ex.what());
+    return;
+  }
+
+  typename VDBMappingT::GridT::Ptr section = m_vdb_map->getMapSectionGrid(
+    m_section_min_coord, m_section_max_coord, tf2::transformToEigen(map_to_robot_tf).matrix());
+  vdb_mapping_interfaces::msg::UpdateGrid msg;
+  msg.header.frame_id = m_map_frame;
+  msg.header.stamp    = map_to_robot_tf.header.stamp;
+  msg.map = m_vdb_map->template gridToByteArray<typename VDBMappingT::GridT>(section);
+  m_map_section_pub->publish(msg);
+}
+
+template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::mapUpdateCallback(
   const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
 {
@@ -608,6 +729,14 @@ void VDBMappingROS2<VDBMappingT>::mapSectionCallback(
 {
   m_vdb_map->applyMapSectionUpdateGrid(
     m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
+}
+
+template <typename VDBMappingT>
+void VDBMappingROS2<VDBMappingT>::mapFullSectionCallback(
+  const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
+{
+  m_vdb_map->applyMapSectionGrid(
+    m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map));
 }
 
 template <typename VDBMappingT>

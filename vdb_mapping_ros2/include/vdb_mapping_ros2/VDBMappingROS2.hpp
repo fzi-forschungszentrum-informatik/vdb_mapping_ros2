@@ -61,10 +61,13 @@ struct RemoteSource
   rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_update_sub;
   rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_overwrite_sub;
   rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_section_sub;
+  rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_full_section_sub;
   rclcpp::Client<vdb_mapping_interfaces::srv::GetMapSection>::SharedPtr get_map_section_client;
+  rclcpp::Client<vdb_mapping_interfaces::srv::GetMapSection>::SharedPtr get_map_full_section_client;
   bool apply_remote_updates;
   bool apply_remote_overwrites;
   bool apply_remote_sections;
+  bool apply_remote_full_sections;
 };
 
 struct SensorSource
@@ -155,6 +158,9 @@ public:
 
   void
   mapSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg);
+  
+  void
+  mapFullSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg);
 
   /*!
    * \brief Get the map frame name
@@ -209,6 +215,18 @@ public:
   bool triggerMapSectionUpdateCallback(
     const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Request> req,
     const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Response> res);
+  
+  /*!
+   * \brief Callback for triggering a map full section request on a remote source
+   *
+   * \param req Coordinates, reference frame and remote source identifier of the map section
+   * \param res Result of triggering section request
+   *
+   * \returns Result of triggering section request
+   */
+  bool triggerMapFullSectionUpdateCallback(
+    const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Request> req,
+    const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Response> res);
 
   /*!
    * \brief Callback for adding points directly into the grid
@@ -259,6 +277,7 @@ public:
   void visualizationTimerCallback();
   void accumulationUpdateTimerCallback();
   void sectionTimerCallback();
+  void fullSectionTimerCallback();
 
 private:
   std::vector<rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr> m_cloud_subs;
@@ -290,6 +309,10 @@ private:
    * \brief Publisher for map sections
    */
   rclcpp::Publisher<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr m_map_section_pub;
+  /*!
+   * \brief Publisher for full map sections
+   */
+  rclcpp::Publisher<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr m_map_full_section_pub;
   /*!
    * \brief Saves map in specified path from parameter server
    */
@@ -333,6 +356,11 @@ private:
    */
   rclcpp::Service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>::SharedPtr
     m_trigger_map_section_update_service;
+  /*!
+   * \brief Service for triggering the map section request on a remote source
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>::SharedPtr
+    m_trigger_map_full_section_update_service;
   /*!
    * \brief Service for adding points directly into the grid.
    */
@@ -392,6 +420,10 @@ private:
    */
   bool m_publish_sections;
   /*!
+   * \brief Specifies whether the mapping publishes map full sections for remote use
+   */
+  bool m_publish_full_sections;
+  /*!
    * \brief Specifies whether the mapping applies raw sensor data
    */
   bool m_apply_raw_sensor_data;
@@ -415,6 +447,10 @@ private:
    * \brief Timer for publishing map sections
    */
   rclcpp::TimerBase::SharedPtr m_section_timer;
+  /*!
+   * \brief Timer for publishing full map sections
+   */
+  rclcpp::TimerBase::SharedPtr m_full_section_timer;
   /*!
    * \brief Min Coordinate of the section update bounding box
    */
