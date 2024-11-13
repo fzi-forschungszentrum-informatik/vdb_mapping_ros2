@@ -252,16 +252,6 @@ public:
     const std::shared_ptr<vdb_mapping_interfaces::srv::RemovePointsFromGrid::Request> req,
     const std::shared_ptr<vdb_mapping_interfaces::srv::RemovePointsFromGrid::Response> res);
 
-  /*!
-   * \brief Callback for occupancy grid service call
-   *
-   * \param req Trigger request
-   * \param res current occupancy grid
-   * \returns current occupancy grid
-   */
-  bool
-  occGridGenCallback(const std::shared_ptr<vdb_mapping_interfaces::srv::GetOccGrid::Request> req,
-                     const std::shared_ptr<vdb_mapping_interfaces::srv::GetOccGrid::Response> res);
 
   /*!
    * \brief Callback for raytrace service call
@@ -297,6 +287,11 @@ private:
    * \brief Publisher for the point cloud
    */
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr m_pointcloud_pub;
+
+  /*!
+   * /brief Publisher for the OccupancyGrid.
+   */
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr m_occupancy_grid_pub;
   /*!
    * \brief Publisher for map updates
    */
@@ -339,10 +334,6 @@ private:
    * \brief Service for dynamic reconfigure of parameters
    */
   // TODO
-  /*!
-   * \brief Service to request an occupancy grid based on the current VDB map
-   */
-  rclcpp::Service<vdb_mapping_interfaces::srv::GetOccGrid>::SharedPtr m_occupancy_grid_service;
   /*!
    * \brief Service for raytracing
    */
@@ -407,6 +398,10 @@ private:
    * \brief Specifies whether the map should be published as markers or not
    */
   bool m_publish_vis_marker;
+  /*!
+   * \brief Specifies whether the map should be published as a occupancy grid!
+   */
+  bool m_publish_occupancy_grid;
   /*!
    * \brief Specifies whether the mapping publishes map updates for remote use
    */

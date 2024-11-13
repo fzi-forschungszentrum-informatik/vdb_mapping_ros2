@@ -60,6 +60,8 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
   this->get_parameter("publish_pointcloud", m_publish_pointcloud);
   this->declare_parameter<bool>("publish_vis_marker", true);
   this->get_parameter("publish_vis_marker", m_publish_vis_marker);
+  this->declare_parameter<bool>("publish_occupancy_grid", true);
+  this->get_parameter("publish_occupancy_grid", m_publish_occupancy_grid);
   this->declare_parameter<bool>("publish_updates", false);
   this->get_parameter("publish_updates", m_publish_updates);
   this->declare_parameter<bool>("publish_overwrites", false);
@@ -314,9 +316,8 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
     this->create_publisher<sensor_msgs::msg::PointCloud2>("~/vdb_map_pointcloud", 1);
   m_visualization_marker_pub =
     this->create_publisher<visualization_msgs::msg::Marker>("~/vdb_map_visualization", 1);
-
-  m_occupancy_grid_service = this->create_service<vdb_mapping_interfaces::srv::GetOccGrid>(
-    "~/get_occupancy_grid", std::bind(&VDBMappingROS2::occGridGenCallback, this, _1, _2));
+  m_occupancy_grid_pub =
+    this->create_publisher<nav_msgs::msg::OccupancyGrid>("~/vdb_map_occupancy", 1);
 
   double visualization_rate;
   this->declare_parameter<double>("visualization_rate", 1.0);
@@ -739,62 +740,6 @@ void VDBMappingROS2<VDBMappingT>::mapFullSectionCallback(
     m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map));
 }
 
-template <typename VDBMappingT>
-bool VDBMappingROS2<VDBMappingT>::occGridGenCallback(
-  const std::shared_ptr<vdb_mapping_interfaces::srv::GetOccGrid::Request> req,
-  const std::shared_ptr<vdb_mapping_interfaces::srv::GetOccGrid::Response> res)
-{
-  (void)req;
-  nav_msgs::msg::OccupancyGrid grid;
-  openvdb::CoordBBox curr_bbox = m_vdb_map->getGrid()->evalActiveVoxelBoundingBox();
-  grid.header.frame_id         = m_map_frame;
-  grid.header.stamp            = this->now();
-  grid.info.height             = curr_bbox.dim().y();
-  grid.info.width              = curr_bbox.dim().x();
-  grid.info.resolution         = m_resolution;
-  std::vector<int> voxel_projection_grid;
-  grid.data.resize(grid.info.width * grid.info.height);
-  voxel_projection_grid.resize(grid.info.width * grid.info.height);
-
-  int x_offset = abs(curr_bbox.min().x());
-  int y_offset = abs(curr_bbox.min().y());
-
-  geometry_msgs::msg::Pose origin_pose;
-  origin_pose.position.x = curr_bbox.min().x() * m_resolution;
-  origin_pose.position.y = curr_bbox.min().y() * m_resolution;
-  origin_pose.position.z = 0.00;
-
-  grid.info.origin   = origin_pose;
-  int world_to_index = 0;
-  for (openvdb::FloatGrid::ValueOnCIter iter = m_vdb_map->getGrid()->cbeginValueOn(); iter; ++iter)
-  {
-    if (iter.isValueOn())
-    {
-      world_to_index =
-        (iter.getCoord().y() + y_offset) * curr_bbox.dim().x() + (iter.getCoord().x() + x_offset);
-      voxel_projection_grid[world_to_index] += 1;
-    }
-  }
-
-  for (size_t i = 0; i < voxel_projection_grid.size(); i++)
-  {
-    if (voxel_projection_grid[i] > m_two_dim_projection_threshold)
-    {
-      grid.data[i] = 100;
-    }
-    else if (voxel_projection_grid[i] == 0)
-    {
-      grid.data[i] = -1;
-    }
-    else
-    {
-      grid.data[i] = 0;
-    }
-  }
-  res->occupancy_grid = grid;
-  return true;
-}
-
 
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::cloudCallback(
@@ -896,7 +841,7 @@ void VDBMappingROS2<VDBMappingT>::publishUpdates(typename VDBMappingT::UpdateGri
 template <typename VDBMappingT>
 void VDBMappingROS2<VDBMappingT>::publishMap() const
 {
-  if (!(m_publish_pointcloud || m_publish_vis_marker))
+  if (!(m_publish_pointcloud || m_publish_vis_marker || m_publish_occupancy_grid))
   {
     return;
   }
@@ -906,17 +851,25 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
   bool publish_pointcloud;
   publish_pointcloud =
     (m_publish_pointcloud && this->count_subscribers("~/vdb_map_pointcloud") > 0);
+  bool publish_occupancy_grid;
+  publish_occupancy_grid =
+    (m_publish_occupancy_grid && this->count_subscribers("~/vdb_map_occupancy") > 0);
 
   visualization_msgs::msg::Marker visualization_marker_msg;
   sensor_msgs::msg::PointCloud2 cloud_msg;
+  nav_msgs::msg::OccupancyGrid occupancy_grid_msg;
   VDBMappingTools<VDBMappingT>::createMappingOutput(m_vdb_map->getGrid(),
                                                     m_map_frame,
                                                     visualization_marker_msg,
                                                     cloud_msg,
+                                                    occupancy_grid_msg,
                                                     m_publish_vis_marker,
                                                     m_publish_pointcloud,
+                                                    m_publish_occupancy_grid,
                                                     m_lower_visualization_z_limit,
-                                                    m_upper_visualization_z_limit);
+                                                    m_upper_visualization_z_limit,
+                                                    m_resolution,
+                                                    m_two_dim_projection_threshold);
   if (publish_vis_marker)
   {
     visualization_marker_msg.header.stamp = this->now();
@@ -926,5 +879,12 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
   {
     cloud_msg.header.stamp = this->now();
     m_pointcloud_pub->publish(cloud_msg);
+  }
+
+  if(publish_occupancy_grid) {
+    occupancy_grid_msg.header.stamp = this->now();
+    occupancy_grid_msg.header.frame_id = m_map_frame;
+    occupancy_grid_msg.info.resolution = m_resolution;
+    m_occupancy_grid_pub->publish(occupancy_grid_msg);
   }
 }

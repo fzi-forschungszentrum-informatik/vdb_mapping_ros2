@@ -22,15 +22,20 @@
  *
  */
 //----------------------------------------------------------------------
+#include <sys/wait.h>
 template <typename VDBMappingT>
 void VDBMappingTools<VDBMappingT>::createMappingOutput(const typename VDBMappingT::GridT::Ptr grid,
                                                        const std::string& frame_id,
                                                        visualization_msgs::msg::Marker& marker_msg,
                                                        sensor_msgs::msg::PointCloud2& cloud_msg,
+                                                       nav_msgs::msg::OccupancyGrid& occupancy_grid_msg,
                                                        const bool create_marker,
                                                        const bool create_pointcloud,
+                                                       const bool create_occupancy_grid,
                                                        double lower_z_limit,
-                                                       double upper_z_limit)
+                                                       double upper_z_limit,
+                                                       const float resolution, 
+                                                       const int two_dim_proj_threshold)
 {
   typename VDBMappingT::PointCloudT::Ptr cloud(new typename VDBMappingT::PointCloudT);
   openvdb::CoordBBox bbox = grid->evalActiveVoxelBoundingBox();
@@ -46,8 +51,34 @@ void VDBMappingTools<VDBMappingT>::createMappingOutput(const typename VDBMapping
     max_z = max_z > upper_z_limit ? upper_z_limit : max_z;
   }
 
+  std::vector<int> occ_voxel_projection_grid;
+  int occ_x_offset;
+  int occ_y_offset;
+  if(create_occupancy_grid) {
+    occupancy_grid_msg.info.height             = bbox.dim().y();
+    occupancy_grid_msg.info.width              = bbox.dim().x();
+    occupancy_grid_msg.info.resolution         = resolution;
+    occupancy_grid_msg.data.resize(occupancy_grid_msg.info.width * occupancy_grid_msg.info.height);
+    occ_voxel_projection_grid.resize(occupancy_grid_msg.info.width * occupancy_grid_msg.info.height);
+
+    occ_x_offset = abs(bbox.min().x());
+    occ_y_offset = abs(bbox.min().y());
+
+    geometry_msgs::msg::Pose origin_pose;
+    origin_pose.position.x = bbox.min().x() * resolution;
+    origin_pose.position.y = bbox.min().y() * resolution;
+    origin_pose.position.z = 0.00;
+
+    occupancy_grid_msg.info.origin   = origin_pose;
+  }
+  
   for (typename VDBMappingT::GridT::ValueOnCIter iter = grid->cbeginValueOn(); iter; ++iter)
   {
+    if (create_occupancy_grid) {
+      int vdb_index_to_occ_index =
+        (iter.getCoord().y() + occ_y_offset) * bbox.dim().x() + (iter.getCoord().x() + occ_x_offset);
+      occ_voxel_projection_grid[vdb_index_to_occ_index] += 1;
+    }
     openvdb::Vec3d world_coord = grid->indexToWorld(iter.getCoord());
 
     if( world_coord.z() < min_z || world_coord.z() > max_z)
@@ -101,6 +132,24 @@ void VDBMappingTools<VDBMappingT>::createMappingOutput(const typename VDBMapping
     pcl::toROSMsg(*cloud, cloud_msg);
     cloud_msg.header.frame_id = frame_id;
     // cloud_msg.header.stamp    = ros::Time::now();
+  }
+
+  if (create_occupancy_grid) {
+    for (size_t i = 0; i < occ_voxel_projection_grid.size(); i++)
+    {
+      if (occ_voxel_projection_grid[i] > two_dim_proj_threshold)
+      {
+        occupancy_grid_msg.data[i] = 100;
+      }
+      else if (occ_voxel_projection_grid[i] == 0)
+      {
+        occupancy_grid_msg.data[i] = -1;
+      }
+      else
+      {
+        occupancy_grid_msg.data[i] = 0;
+      }
+    }
   }
 }
 // Conversion from Hue to RGB Value

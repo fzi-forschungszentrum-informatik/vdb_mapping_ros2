@@ -30,6 +30,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 
 /*!
  * \brief Collection of VDBMapping helper functions and tools
@@ -55,10 +56,14 @@ public:
                                   const std::string& frame_id,
                                   visualization_msgs::msg::Marker& marker_msg,
                                   sensor_msgs::msg::PointCloud2& cloud_msg,
-                                  bool create_marker,
-                                  bool create_pointcloud,
+                                  nav_msgs::msg::OccupancyGrid& occupancy_grid_msg,
+                                  const bool create_marker,
+                                  const bool create_pointcloud,
+                                  const bool create_occupancy_grid,
                                   double lower_z_limit = 0.0,
-                                  double upper_z_limit = 0.0);
+                                  double upper_z_limit = 0.0,
+                                  const float resolution = 0.05, 
+                                  const int two_dim_proj_threshold = 5);
   /*!
    * \brief Calculates a height correlating color coding using HSV color space
    *
