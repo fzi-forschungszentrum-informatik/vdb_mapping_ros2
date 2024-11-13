@@ -25,12 +25,12 @@
 #ifndef VDB_MAPPING_ROS2_VDBMAPPINGTOOLS_H_INCLUDED
 #define VDB_MAPPING_ROS2_VDBMAPPINGTOOLS_H_INCLUDED
 #include <geometry_msgs/msg/point.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include <openvdb/openvdb.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <visualization_msgs/msg/marker.hpp>
-#include <nav_msgs/msg/occupancy_grid.hpp>
 
 /*!
  * \brief Collection of VDBMapping helper functions and tools
@@ -39,8 +39,8 @@ template <typename VDBMappingT>
 class VDBMappingTools
 {
 public:
-  VDBMappingTools(){};
-  virtual ~VDBMappingTools(){};
+  VDBMappingTools() {};
+  virtual ~VDBMappingTools() {};
   /*!
    * \brief Creates output msgs for pointcloud and marker arrays
    *
@@ -60,9 +60,9 @@ public:
                                   const bool create_marker,
                                   const bool create_pointcloud,
                                   const bool create_occupancy_grid,
-                                  double lower_z_limit = 0.0,
-                                  double upper_z_limit = 0.0,
-                                  const float resolution = 0.05, 
+                                  double lower_z_limit             = 0.0,
+                                  double upper_z_limit             = 0.0,
+                                  const float resolution           = 0.05,
                                   const int two_dim_proj_threshold = 5);
   /*!
    * \brief Calculates a height correlating color coding using HSV color space

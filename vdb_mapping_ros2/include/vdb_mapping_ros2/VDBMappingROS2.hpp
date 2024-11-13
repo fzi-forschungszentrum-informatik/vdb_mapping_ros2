@@ -85,7 +85,7 @@ public:
    * \brief Creates a new VDBMappingROS instance
    */
   explicit VDBMappingROS2(const rclcpp::NodeOptions& options);
-  virtual ~VDBMappingROS2(){};
+  virtual ~VDBMappingROS2() {};
 
   /*!
    * \brief Resets the current map
@@ -158,7 +158,7 @@ public:
 
   void
   mapSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg);
-  
+
   void
   mapFullSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg);
 
@@ -215,7 +215,7 @@ public:
   bool triggerMapSectionUpdateCallback(
     const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Request> req,
     const std::shared_ptr<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate::Response> res);
-  
+
   /*!
    * \brief Callback for triggering a map full section request on a remote source
    *

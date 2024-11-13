@@ -81,10 +81,10 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
 
   m_param_sub = std::make_shared<rclcpp::ParameterEventHandler>(this);
 
-  auto min_z_cb = [this](const rclcpp::Parameter &p) {
+  auto min_z_cb = [this](const rclcpp::Parameter& p) {
     m_lower_visualization_z_limit = p.as_double();
   };
-  auto max_z_cb = [this](const rclcpp::Parameter &p) {
+  auto max_z_cb = [this](const rclcpp::Parameter& p) {
     m_upper_visualization_z_limit = p.as_double();
   };
 
@@ -126,7 +126,8 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
     this->declare_parameter<bool>(source_id + ".apply_remote_sections", false);
     this->get_parameter(source_id + ".apply_remote_sections", remote_source.apply_remote_sections);
     this->declare_parameter<bool>(source_id + ".apply_remote_full_sections", false);
-    this->get_parameter(source_id + ".apply_remote_full_sections", remote_source.apply_remote_full_sections);
+    this->get_parameter(source_id + ".apply_remote_full_sections",
+                        remote_source.apply_remote_full_sections);
     if (remote_source.apply_remote_updates)
     {
       remote_source.map_update_sub =
@@ -295,7 +296,7 @@ VDBMappingROS2<VDBMappingT>::VDBMappingROS2(const rclcpp::NodeOptions& options)
     this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
       "~/trigger_map_section_update",
       std::bind(&VDBMappingROS2::triggerMapSectionUpdateCallback, this, _1, _2));
-  
+
   m_trigger_map_full_section_update_service =
     this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
       "~/trigger_map_full_section_update",
@@ -549,7 +550,7 @@ bool VDBMappingROS2<VDBMappingT>::triggerMapFullSectionUpdateCallback(
 
   request->header       = req->header;
   request->bounding_box = req->bounding_box;
-  auto result           = remote_source->second.get_map_full_section_client->async_send_request(request);
+  auto result = remote_source->second.get_map_full_section_client->async_send_request(request);
   if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
       rclcpp::FutureReturnCode::SUCCESS)
   {
@@ -579,8 +580,8 @@ bool VDBMappingROS2<VDBMappingT>::raytraceCallback(
   geometry_msgs::msg::TransformStamped reference_tf;
   try
   {
-    reference_tf =
-      m_tf_buffer->lookupTransform(m_map_frame, req->header.frame_id.c_str(), req->header.stamp, rclcpp::Duration(0,100000000));
+    reference_tf = m_tf_buffer->lookupTransform(
+      m_map_frame, req->header.frame_id.c_str(), req->header.stamp, rclcpp::Duration(0, 100000000));
 
     Eigen::Matrix<double, 4, 4> m = tf2::transformToEigen(reference_tf).matrix();
     Eigen::Matrix<double, 4, 1> origin, direction;
@@ -704,7 +705,7 @@ void VDBMappingROS2<VDBMappingT>::fullSectionTimerCallback()
   vdb_mapping_interfaces::msg::UpdateGrid msg;
   msg.header.frame_id = m_map_frame;
   msg.header.stamp    = map_to_robot_tf.header.stamp;
-  msg.map = m_vdb_map->template gridToByteArray<typename VDBMappingT::GridT>(section);
+  msg.map             = m_vdb_map->template gridToByteArray<typename VDBMappingT::GridT>(section);
   m_map_section_pub->publish(msg);
 }
 
@@ -774,8 +775,10 @@ void VDBMappingROS2<VDBMappingT>::cloudCallback(
     geometry_msgs::msg::TransformStamped origin_to_map_tf;
     try
     {
-      origin_to_map_tf = m_tf_buffer->lookupTransform(
-        m_map_frame, cloud_msg->header.frame_id, cloud_msg->header.stamp, rclcpp::Duration(0, 100000000));
+      origin_to_map_tf = m_tf_buffer->lookupTransform(m_map_frame,
+                                                      cloud_msg->header.frame_id,
+                                                      cloud_msg->header.stamp,
+                                                      rclcpp::Duration(0, 100000000));
     }
     catch (tf2::TransformException& ex)
     {
@@ -881,8 +884,9 @@ void VDBMappingROS2<VDBMappingT>::publishMap() const
     m_pointcloud_pub->publish(cloud_msg);
   }
 
-  if(publish_occupancy_grid) {
-    occupancy_grid_msg.header.stamp = this->now();
+  if (publish_occupancy_grid)
+  {
+    occupancy_grid_msg.header.stamp    = this->now();
     occupancy_grid_msg.header.frame_id = m_map_frame;
     occupancy_grid_msg.info.resolution = m_resolution;
     m_occupancy_grid_pub->publish(occupancy_grid_msg);
