@@ -53,8 +53,8 @@ void VDBMappingTools<VDBMappingT>::createMappingOutput(
   }
 
   std::vector<int> occ_voxel_projection_grid;
-  int occ_x_offset;
-  int occ_y_offset;
+  int occ_x_offset = 0;
+  int occ_y_offset = 0;
   if (create_occupancy_grid)
   {
     occupancy_grid_msg.info.height     = bbox.dim().y();
