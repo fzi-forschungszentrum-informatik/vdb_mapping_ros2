@@ -85,7 +85,7 @@ public:
    * \brief Creates a new VDBMappingROS instance
    */
   explicit VDBMappingROS2(const rclcpp::NodeOptions& options);
-  virtual ~VDBMappingROS2() {};
+  virtual ~VDBMappingROS2(){};
 
   /*!
    * \brief Resets the current map

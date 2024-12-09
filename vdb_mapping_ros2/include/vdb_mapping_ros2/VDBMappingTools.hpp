@@ -39,8 +39,8 @@ template <typename VDBMappingT>
 class VDBMappingTools
 {
 public:
-  VDBMappingTools() {};
-  virtual ~VDBMappingTools() {};
+  VDBMappingTools(){};
+  virtual ~VDBMappingTools(){};
   /*!
    * \brief Creates output msgs for pointcloud and marker arrays
    *
