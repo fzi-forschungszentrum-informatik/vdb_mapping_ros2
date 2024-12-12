@@ -14,6 +14,7 @@
     # Visualizations
     publish_pointcloud: true
     publish_vis_marker: true
+    publish_occupancy_grid: true
     visualization_rate: 2.0
 
     # Sensor input

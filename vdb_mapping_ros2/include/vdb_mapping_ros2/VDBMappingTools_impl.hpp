@@ -57,12 +57,13 @@ void VDBMappingTools<VDBMappingT>::createMappingOutput(
   int occ_y_offset = 0;
   if (create_occupancy_grid)
   {
-    occupancy_grid_msg.info.height     = bbox.dim().y();
-    occupancy_grid_msg.info.width      = bbox.dim().x();
+    occupancy_grid_msg.info.height     = bbox.dim().y() - 1;
+    occupancy_grid_msg.info.width      = bbox.dim().x() - 1;
     occupancy_grid_msg.info.resolution = resolution;
-    occupancy_grid_msg.data.resize(occupancy_grid_msg.info.width * occupancy_grid_msg.info.height);
-    occ_voxel_projection_grid.resize(occupancy_grid_msg.info.width *
-                                     occupancy_grid_msg.info.height);
+    occupancy_grid_msg.data.resize(occupancy_grid_msg.info.width * occupancy_grid_msg.info.height,
+                                   0);
+    occ_voxel_projection_grid.resize(occupancy_grid_msg.info.width * occupancy_grid_msg.info.height,
+                                     0);
 
     occ_x_offset = abs(bbox.min().x());
     occ_y_offset = abs(bbox.min().y());
