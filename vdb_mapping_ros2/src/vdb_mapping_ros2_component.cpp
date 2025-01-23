@@ -1,6 +1,6 @@
 #include "rclcpp/rclcpp.hpp"
 
-#include "vdb_mapping/OccupancyVDBMapping.h"
+#include "vdb_mapping/OccupancyVDBMapping.hpp"
 #include "vdb_mapping_ros2/VDBMappingROS2.hpp"
 
 namespace vdb_mapping_ros2 {
