@@ -92,334 +92,13 @@ public:
     m_tf_buffer   = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     m_tf_listener = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer);
 
-    this->declare_parameter<double>("resolution", 0.1);
-    this->get_parameter("resolution", m_resolution);
-    m_vdb_map = std::make_shared<VDBMappingT>(m_resolution);
-
-    this->declare_parameter<double>("max_range", 10.0);
-    this->get_parameter("max_range", m_config.max_range);
-    this->declare_parameter<double>("prob_hit", 0.7);
-    this->get_parameter("prob_hit", m_config.prob_hit);
-    this->declare_parameter<double>("prob_miss", 0.4);
-    this->get_parameter("prob_miss", m_config.prob_miss);
-    this->declare_parameter<double>("prob_thres_min", 0.12);
-    this->get_parameter("prob_thres_min", m_config.prob_thres_min);
-    this->declare_parameter<double>("prob_thres_max", 0.97);
-    this->get_parameter("prob_thres_max", m_config.prob_thres_max);
-    this->declare_parameter<std::string>("map_directory_path", "");
-    this->get_parameter("map_directory_path", m_config.map_directory_path);
-    this->declare_parameter<int>("two_dim_projection_threshold", 5);
-    this->get_parameter("two_dim_projection_threshold", m_two_dim_projection_threshold);
-
-    // Configuring the VDB map
-    m_vdb_map->setConfig(m_config);
-
-    this->declare_parameter<bool>("publish_pointcloud", true);
-    this->get_parameter("publish_pointcloud", m_publish_pointcloud);
-    this->declare_parameter<bool>("publish_vis_marker", true);
-    this->get_parameter("publish_vis_marker", m_publish_vis_marker);
-    this->declare_parameter<bool>("publish_occupancy_grid", true);
-    this->get_parameter("publish_occupancy_grid", m_publish_occupancy_grid);
-    this->declare_parameter<bool>("publish_updates", false);
-    this->get_parameter("publish_updates", m_publish_updates);
-    this->declare_parameter<bool>("publish_overwrites", false);
-    this->get_parameter("publish_overwrites", m_publish_overwrites);
-    this->declare_parameter<bool>("publish_sections", false);
-    this->get_parameter("publish_sections", m_publish_sections);
-    this->declare_parameter<bool>("publish_full_sections", false);
-    this->get_parameter("publish_full_sections", m_publish_full_sections);
-    this->declare_parameter<bool>("apply_raw_sensor_data", true);
-    this->get_parameter("apply_raw_sensor_data", m_apply_raw_sensor_data);
-
-
-    this->declare_parameter<double>("z_limit_min", 0);
-    this->get_parameter("z_limit_min", m_lower_visualization_z_limit);
-    this->declare_parameter<double>("z_limit_max", 0);
-    this->get_parameter("z_limit_max", m_upper_visualization_z_limit);
-
-    m_param_sub = std::make_shared<rclcpp::ParameterEventHandler>(this);
-
-    auto min_z_cb = [this](const rclcpp::Parameter& p) {
-      m_lower_visualization_z_limit = p.as_double();
-    };
-    auto max_z_cb = [this](const rclcpp::Parameter& p) {
-      m_upper_visualization_z_limit = p.as_double();
-    };
-
-    m_z_min_param_handle = m_param_sub->add_parameter_callback("z_limit_min", min_z_cb);
-    m_z_min_param_handle = m_param_sub->add_parameter_callback("z_limit_max", max_z_cb);
-
-
-    this->declare_parameter<std::string>("map_frame", "");
-    this->get_parameter("map_frame", m_map_frame);
-    if (m_map_frame.empty())
-    {
-      RCLCPP_WARN(this->get_logger(), "No map frame specified");
-    }
-    m_vdb_map->getGrid()->insertMeta("ros/map_frame", openvdb::StringMetadata(m_map_frame));
-    this->declare_parameter<std::string>("robot_frame", "");
-    this->get_parameter("robot_frame", m_robot_frame);
-    if (m_robot_frame.empty())
-    {
-      RCLCPP_WARN(this->get_logger(), "No robot frame specified");
-    }
-
-    // Setting up remote sources
-    std::vector<std::string> source_ids;
-    this->declare_parameter<std::vector<std::string> >("remote_sources",
-                                                       std::vector<std::string>());
-    this->get_parameter("remote_sources", source_ids);
-
-    for (auto& source_id : source_ids)
-    {
-      std::string remote_namespace;
-      this->declare_parameter<std::string>(source_id + ".namespace", "");
-      this->get_parameter(source_id + ".namespace", remote_namespace);
-
-      RemoteSource remote_source;
-      this->declare_parameter<bool>(source_id + ".apply_remote_updates", false);
-      this->get_parameter(source_id + ".apply_remote_updates", remote_source.apply_remote_updates);
-      this->declare_parameter<bool>(source_id + ".apply_remote_overwrites", false);
-      this->get_parameter(source_id + ".apply_remote_overwrites",
-                          remote_source.apply_remote_overwrites);
-      this->declare_parameter<bool>(source_id + ".apply_remote_sections", false);
-      this->get_parameter(source_id + ".apply_remote_sections",
-                          remote_source.apply_remote_sections);
-      this->declare_parameter<bool>(source_id + ".apply_remote_full_sections", false);
-      this->get_parameter(source_id + ".apply_remote_full_sections",
-                          remote_source.apply_remote_full_sections);
-      if (remote_source.apply_remote_updates)
-      {
-        remote_source.map_update_sub =
-          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
-            remote_namespace + "/vdb_map_updates",
-            rclcpp::QoS(10).durability_volatile().best_effort(),
-            std::bind(&VDBMappingROS2::mapUpdateCallback, this, _1));
-      }
-      if (remote_source.apply_remote_overwrites)
-      {
-        remote_source.map_overwrite_sub =
-          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
-            remote_namespace + "/vdb_map_overwrites",
-            rclcpp::QoS(10).durability_volatile().best_effort(),
-            std::bind(&VDBMappingROS2::mapOverwriteCallback, this, _1));
-      }
-      if (remote_source.apply_remote_sections)
-      {
-        remote_source.map_section_sub =
-          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
-            remote_namespace + "/vdb_map_sections",
-            rclcpp::QoS(10).durability_volatile().best_effort(),
-            std::bind(&VDBMappingROS2::mapSectionCallback, this, _1));
-      }
-      if (remote_source.apply_remote_full_sections)
-      {
-        remote_source.map_full_section_sub =
-          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
-            remote_namespace + "/vdb_map_full_sections",
-            rclcpp::QoS(10).durability_volatile().best_effort(),
-            std::bind(&VDBMappingROS2::mapFullSectionCallback, this, _1));
-      }
-      remote_source.get_map_section_client =
-        this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
-                                                                        "/get_map_section");
-      remote_source.get_map_full_section_client =
-        this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
-                                                                        "/get_map_full_section");
-      m_remote_sources.insert(std::make_pair(source_id, remote_source));
-    }
-
-    if (m_publish_updates)
-    {
-      m_map_update_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
-        "~/vdb_map_updates", rclcpp::QoS(1).durability_volatile().best_effort());
-    }
-    if (m_publish_overwrites)
-    {
-      m_map_overwrite_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
-        "~/vdb_map_overwrites", rclcpp::QoS(1).durability_volatile().best_effort());
-    }
-    if (m_publish_sections)
-    {
-      m_map_section_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
-        "~/vdb_map_sections", rclcpp::QoS(1).durability_volatile().best_effort());
-
-      double section_update_rate;
-      this->declare_parameter<double>("section_update.rate", 1);
-      this->get_parameter("section_update.rate", section_update_rate);
-      m_section_timer =
-        this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
-                                std::bind(&VDBMappingROS2::sectionTimerCallback, this));
-
-      this->declare_parameter<double>("section_update.min_coord.x", -10);
-      this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
-      this->declare_parameter<double>("section_update.min_coord.y", -10);
-      this->get_parameter("section_update.min_coord.y", m_section_min_coord.y());
-      this->declare_parameter<double>("section_update.min_coord.z", -10);
-      this->get_parameter("section_update.min_coord.z", m_section_min_coord.z());
-      this->declare_parameter<double>("section_update.max_coord.x", 10);
-      this->get_parameter("section_update.max_coord.x", m_section_max_coord.x());
-      this->declare_parameter<double>("section_update.max_coord.y", 10);
-      this->get_parameter("section_update.max_coord.y", m_section_max_coord.y());
-      this->declare_parameter<double>("section_update.max_coord.z", 10);
-      this->get_parameter("section_update.max_coord.z", m_section_max_coord.z());
-      this->declare_parameter<std::string>("section_update.frame", m_robot_frame);
-      this->get_parameter("section_update.frame", m_section_update_frame);
-    }
-    if (m_publish_full_sections)
-    {
-      m_map_section_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
-        "~/vdb_map_full_sections", rclcpp::QoS(1).durability_volatile().best_effort());
-
-      double section_update_rate;
-      this->declare_parameter<double>("section_update.rate", 1);
-      this->get_parameter("section_update.rate", section_update_rate);
-      m_full_section_timer =
-        this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
-                                std::bind(&VDBMappingROS2::fullSectionTimerCallback, this));
-
-      this->declare_parameter<double>("section_update.min_coord.x", -10);
-      this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
-      this->declare_parameter<double>("section_update.min_coord.y", -10);
-      this->get_parameter("section_update.min_coord.y", m_section_min_coord.y());
-      this->declare_parameter<double>("section_update.min_coord.z", -10);
-      this->get_parameter("section_update.min_coord.z", m_section_min_coord.z());
-      this->declare_parameter<double>("section_update.max_coord.x", 10);
-      this->get_parameter("section_update.max_coord.x", m_section_max_coord.x());
-      this->declare_parameter<double>("section_update.max_coord.y", 10);
-      this->get_parameter("section_update.max_coord.y", m_section_max_coord.y());
-      this->declare_parameter<double>("section_update.max_coord.z", 10);
-      this->get_parameter("section_update.max_coord.z", m_section_max_coord.z());
-      this->declare_parameter<std::string>("section_update.frame", m_robot_frame);
-      this->get_parameter("section_update.frame", m_section_update_frame);
-    }
-
-    if (m_apply_raw_sensor_data)
-    {
-      this->declare_parameter<std::vector<std::string> >("sources", std::vector<std::string>());
-      this->get_parameter("sources", source_ids);
-
-      for (auto& source_id : source_ids)
-      {
-        SensorSource sensor_source;
-        this->declare_parameter<std::string>(source_id + ".topic", "");
-        this->get_parameter(source_id + ".topic", sensor_source.topic);
-        this->declare_parameter<std::string>(source_id + ".sensor_origin_frame", "");
-        this->get_parameter(source_id + ".sensor_origin_frame", sensor_source.sensor_origin_frame);
-        this->declare_parameter<double>(source_id + ".max_range", 0);
-        this->get_parameter(source_id + ".max_range", sensor_source.max_range);
-        RCLCPP_INFO_STREAM(this->get_logger(), "Setting up source: " << source_id);
-
-        if (sensor_source.topic.empty())
-        {
-          RCLCPP_ERROR_STREAM(this->get_logger(),
-                              "No input topic specified for source: " << source_id);
-          continue;
-        }
-        RCLCPP_INFO_STREAM(this->get_logger(), "Topic: " << sensor_source.topic);
-        if (sensor_source.sensor_origin_frame.empty())
-        {
-          RCLCPP_INFO(this->get_logger(), "Using frame id of topic as raycast origin");
-        }
-        else
-        {
-          RCLCPP_INFO_STREAM(this->get_logger(),
-                             "Using " << sensor_source.sensor_origin_frame << " as raycast origin");
-        }
-
-
-        m_cloud_subs.push_back(this->create_subscription<sensor_msgs::msg::PointCloud2>(
-          sensor_source.topic,
-          rclcpp::QoS(1).durability_volatile().best_effort(),
-          [&, sensor_source](const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg) {
-            cloudCallback(cloud_msg, sensor_source);
-          }));
-      }
-    }
-
-    m_reset_map_service = this->create_service<std_srvs::srv::Trigger>(
-      "~/reset_map", std::bind(&VDBMappingROS2::resetMapCallback, this, _1, _2));
-
-    m_save_map_service = this->create_service<std_srvs::srv::Trigger>(
-      "~/save_map", std::bind(&VDBMappingROS2::saveMap, this, _1, _2));
-
-    m_load_map_service = this->create_service<vdb_mapping_interfaces::srv::LoadMap>(
-      "~/load_map", std::bind(&VDBMappingROS2::loadMap, this, _1, _2));
-
-    m_load_map_from_pcd_service = this->create_service<vdb_mapping_interfaces::srv::LoadMapFromPCD>(
-      "~/load_map_from_pcd", std::bind(&VDBMappingROS2::loadMapFromPCD, this, _1, _2));
-
-    m_get_map_section_service = this->create_service<vdb_mapping_interfaces::srv::GetMapSection>(
-      "~/get_map_section", std::bind(&VDBMappingROS2::getMapSectionCallback, this, _1, _2));
-
-    m_trigger_map_section_update_service =
-      this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
-        "~/trigger_map_section_update",
-        std::bind(&VDBMappingROS2::triggerMapSectionUpdateCallback, this, _1, _2));
-
-    m_trigger_map_full_section_update_service =
-      this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
-        "~/trigger_map_full_section_update",
-        std::bind(&VDBMappingROS2::triggerMapFullSectionUpdateCallback, this, _1, _2));
-
-    m_raytrace_service = this->create_service<vdb_mapping_interfaces::srv::Raytrace>(
-      "~/raytrace", std::bind(&VDBMappingROS2::raytraceCallback, this, _1, _2));
-
-    m_add_points_to_grid_service =
-      this->create_service<vdb_mapping_interfaces::srv::AddPointsToGrid>(
-        "~/add_points_to_grid", std::bind(&VDBMappingROS2::addPointsToGridCallback, this, _1, _2));
-
-    m_remove_points_from_grid_service =
-      this->create_service<vdb_mapping_interfaces::srv::RemovePointsFromGrid>(
-        "~/remove_points_from_grid",
-        std::bind(&VDBMappingROS2::removePointsFromGridCallback, this, _1, _2));
-
-    m_pointcloud_pub =
-      this->create_publisher<sensor_msgs::msg::PointCloud2>("~/vdb_map_pointcloud", 1);
-    m_visualization_marker_pub =
-      this->create_publisher<visualization_msgs::msg::Marker>("~/vdb_map_visualization", 1);
-    m_occupancy_grid_pub =
-      this->create_publisher<nav_msgs::msg::OccupancyGrid>("~/vdb_map_occupancy", 1);
-
-    double visualization_rate;
-    this->declare_parameter<double>("visualization_rate", 1.0);
-    this->get_parameter("visualization_rate", visualization_rate);
-    if (visualization_rate > 0.0)
-    {
-      m_visualization_timer =
-        this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / visualization_rate)),
-                                std::bind(&VDBMappingROS2::visualizationTimerCallback, this));
-    }
-
-    this->declare_parameter<bool>("accumulate_updates", false);
-    this->get_parameter("accumulate_updates", m_accumulate_updates);
-    if (m_accumulate_updates)
-    {
-      double accumulation_period;
-      this->declare_parameter<double>("accumulation_period", 1);
-      this->get_parameter("accumulation_period", accumulation_period);
-      m_accumulation_update_timer =
-        this->create_wall_timer(std::chrono::milliseconds((int)(1000 * accumulation_period)),
-                                std::bind(&VDBMappingROS2::accumulationUpdateTimerCallback, this));
-    }
-
-    // Load initial map file
-    std::string initial_map_file;
-    bool set_background;
-    bool clear_map;
-    this->declare_parameter<std::string>("map_server.initial_map_file", "");
-    this->get_parameter("map_server.initial_map_file", initial_map_file);
-    RCLCPP_INFO_STREAM(this->get_logger(), "Loading intial Map " << initial_map_file);
-    this->declare_parameter<bool>("map_server.set_background", false);
-    this->get_parameter("map_server.set_background", set_background);
-    this->declare_parameter<bool>("map_server.clear_map", false);
-    this->get_parameter("map_server.clear_map", clear_map);
-    if (initial_map_file != "")
-    {
-      RCLCPP_INFO_STREAM(this->get_logger(), "Loading intial Map " << initial_map_file);
-      m_vdb_map->loadMapFromPCD(initial_map_file, set_background, clear_map);
-      publishMap();
-    }
+    setUpVDBMap();
+    setUpLocalSources();
+    setUpRemoteSources();
+    setUpVisualization();
+    setUpServices();
+    setUpPublishers();
+    setUpMapServer();
   }
 
 
@@ -1018,6 +697,362 @@ public:
   }
 
 private:
+  void setUpVDBMap()
+  {
+    this->declare_parameter<double>("resolution", 0.1);
+    this->get_parameter("resolution", m_resolution);
+    m_vdb_map = std::make_shared<VDBMappingT>(m_resolution);
+
+    this->declare_parameter<double>("max_range", 10.0);
+    this->get_parameter("max_range", m_config.max_range);
+    this->declare_parameter<double>("prob_hit", 0.7);
+    this->get_parameter("prob_hit", m_config.prob_hit);
+    this->declare_parameter<double>("prob_miss", 0.4);
+    this->get_parameter("prob_miss", m_config.prob_miss);
+    this->declare_parameter<double>("prob_thres_min", 0.12);
+    this->get_parameter("prob_thres_min", m_config.prob_thres_min);
+    this->declare_parameter<double>("prob_thres_max", 0.97);
+    this->get_parameter("prob_thres_max", m_config.prob_thres_max);
+    this->declare_parameter<std::string>("map_directory_path", "");
+    this->get_parameter("map_directory_path", m_config.map_directory_path);
+    this->declare_parameter<int>("two_dim_projection_threshold", 5);
+    this->get_parameter("two_dim_projection_threshold", m_two_dim_projection_threshold);
+
+    // Configuring the VDB map
+    m_vdb_map->setConfig(m_config);
+
+    this->declare_parameter<std::string>("map_frame", "");
+    this->get_parameter("map_frame", m_map_frame);
+    if (m_map_frame.empty())
+    {
+      RCLCPP_WARN(this->get_logger(), "No map frame specified");
+    }
+    m_vdb_map->getGrid()->insertMeta("ros/map_frame", openvdb::StringMetadata(m_map_frame));
+    this->declare_parameter<std::string>("robot_frame", "");
+    this->get_parameter("robot_frame", m_robot_frame);
+    if (m_robot_frame.empty())
+    {
+      RCLCPP_WARN(this->get_logger(), "No robot frame specified");
+    }
+  }
+
+  void setUpLocalSources()
+  {
+    this->declare_parameter<bool>("apply_raw_sensor_data", true);
+    this->get_parameter("apply_raw_sensor_data", m_apply_raw_sensor_data);
+
+    if (m_apply_raw_sensor_data)
+    {
+      std::vector<std::string> source_ids;
+      this->declare_parameter<std::vector<std::string> >("sources", std::vector<std::string>());
+      this->get_parameter("sources", source_ids);
+
+      for (auto& source_id : source_ids)
+      {
+        SensorSource sensor_source;
+        this->declare_parameter<std::string>(source_id + ".topic", "");
+        this->get_parameter(source_id + ".topic", sensor_source.topic);
+        this->declare_parameter<std::string>(source_id + ".sensor_origin_frame", "");
+        this->get_parameter(source_id + ".sensor_origin_frame", sensor_source.sensor_origin_frame);
+        this->declare_parameter<double>(source_id + ".max_range", 0);
+        this->get_parameter(source_id + ".max_range", sensor_source.max_range);
+        RCLCPP_INFO_STREAM(this->get_logger(), "Setting up source: " << source_id);
+
+        if (sensor_source.topic.empty())
+        {
+          RCLCPP_ERROR_STREAM(this->get_logger(),
+                              "No input topic specified for source: " << source_id);
+          continue;
+        }
+        RCLCPP_INFO_STREAM(this->get_logger(), "Topic: " << sensor_source.topic);
+        if (sensor_source.sensor_origin_frame.empty())
+        {
+          RCLCPP_INFO(this->get_logger(), "Using frame id of topic as raycast origin");
+        }
+        else
+        {
+          RCLCPP_INFO_STREAM(this->get_logger(),
+                             "Using " << sensor_source.sensor_origin_frame << " as raycast origin");
+        }
+
+
+        m_cloud_subs.push_back(this->create_subscription<sensor_msgs::msg::PointCloud2>(
+          sensor_source.topic,
+          rclcpp::QoS(1).durability_volatile().best_effort(),
+          [&, sensor_source](const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg) {
+            cloudCallback(cloud_msg, sensor_source);
+          }));
+      }
+      this->declare_parameter<bool>("accumulate_updates", false);
+      this->get_parameter("accumulate_updates", m_accumulate_updates);
+      if (m_accumulate_updates)
+      {
+        double accumulation_period;
+        this->declare_parameter<double>("accumulation_period", 1);
+        this->get_parameter("accumulation_period", accumulation_period);
+        m_accumulation_update_timer = this->create_wall_timer(
+          std::chrono::milliseconds((int)(1000 * accumulation_period)),
+          std::bind(&VDBMappingROS2::accumulationUpdateTimerCallback, this));
+      }
+    }
+  }
+  void setUpRemoteSources()
+  {
+    using namespace std::placeholders;
+    std::vector<std::string> source_ids;
+    // Setting up remote sources
+    this->declare_parameter<std::vector<std::string> >("remote_sources",
+                                                       std::vector<std::string>());
+    this->get_parameter("remote_sources", source_ids);
+
+    for (auto& source_id : source_ids)
+    {
+      std::string remote_namespace;
+      this->declare_parameter<std::string>(source_id + ".namespace", "");
+      this->get_parameter(source_id + ".namespace", remote_namespace);
+
+      RemoteSource remote_source;
+      this->declare_parameter<bool>(source_id + ".apply_remote_updates", false);
+      this->get_parameter(source_id + ".apply_remote_updates", remote_source.apply_remote_updates);
+      this->declare_parameter<bool>(source_id + ".apply_remote_overwrites", false);
+      this->get_parameter(source_id + ".apply_remote_overwrites",
+                          remote_source.apply_remote_overwrites);
+      this->declare_parameter<bool>(source_id + ".apply_remote_sections", false);
+      this->get_parameter(source_id + ".apply_remote_sections",
+                          remote_source.apply_remote_sections);
+      this->declare_parameter<bool>(source_id + ".apply_remote_full_sections", false);
+      this->get_parameter(source_id + ".apply_remote_full_sections",
+                          remote_source.apply_remote_full_sections);
+      if (remote_source.apply_remote_updates)
+      {
+        remote_source.map_update_sub =
+          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
+            remote_namespace + "/vdb_map_updates",
+            rclcpp::QoS(10).durability_volatile().best_effort(),
+            std::bind(&VDBMappingROS2::mapUpdateCallback, this, _1));
+      }
+      if (remote_source.apply_remote_overwrites)
+      {
+        remote_source.map_overwrite_sub =
+          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
+            remote_namespace + "/vdb_map_overwrites",
+            rclcpp::QoS(10).durability_volatile().best_effort(),
+            std::bind(&VDBMappingROS2::mapOverwriteCallback, this, _1));
+      }
+      if (remote_source.apply_remote_sections)
+      {
+        remote_source.map_section_sub =
+          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
+            remote_namespace + "/vdb_map_sections",
+            rclcpp::QoS(10).durability_volatile().best_effort(),
+            std::bind(&VDBMappingROS2::mapSectionCallback, this, _1));
+      }
+      if (remote_source.apply_remote_full_sections)
+      {
+        remote_source.map_full_section_sub =
+          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
+            remote_namespace + "/vdb_map_full_sections",
+            rclcpp::QoS(10).durability_volatile().best_effort(),
+            std::bind(&VDBMappingROS2::mapFullSectionCallback, this, _1));
+      }
+      remote_source.get_map_section_client =
+        this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
+                                                                        "/get_map_section");
+      remote_source.get_map_full_section_client =
+        this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
+                                                                        "/get_map_full_section");
+      m_remote_sources.insert(std::make_pair(source_id, remote_source));
+    }
+  }
+  void setUpVisualization()
+  {
+    this->declare_parameter<double>("z_limit_min", 0);
+    this->get_parameter("z_limit_min", m_lower_visualization_z_limit);
+    this->declare_parameter<double>("z_limit_max", 0);
+    this->get_parameter("z_limit_max", m_upper_visualization_z_limit);
+
+    m_param_sub = std::make_shared<rclcpp::ParameterEventHandler>(this);
+
+    auto min_z_cb = [this](const rclcpp::Parameter& p) {
+      m_lower_visualization_z_limit = p.as_double();
+    };
+    auto max_z_cb = [this](const rclcpp::Parameter& p) {
+      m_upper_visualization_z_limit = p.as_double();
+    };
+
+    m_z_min_param_handle = m_param_sub->add_parameter_callback("z_limit_min", min_z_cb);
+    m_z_min_param_handle = m_param_sub->add_parameter_callback("z_limit_max", max_z_cb);
+
+    double visualization_rate;
+    this->declare_parameter<double>("visualization_rate", 1.0);
+    this->get_parameter("visualization_rate", visualization_rate);
+    if (visualization_rate > 0.0)
+    {
+      m_visualization_timer =
+        this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / visualization_rate)),
+                                std::bind(&VDBMappingROS2::visualizationTimerCallback, this));
+    }
+  }
+  void setUpServices()
+  {
+    using namespace std::placeholders;
+    m_reset_map_service = this->create_service<std_srvs::srv::Trigger>(
+      "~/reset_map", std::bind(&VDBMappingROS2::resetMapCallback, this, _1, _2));
+
+    m_save_map_service = this->create_service<std_srvs::srv::Trigger>(
+      "~/save_map", std::bind(&VDBMappingROS2::saveMap, this, _1, _2));
+
+    m_load_map_service = this->create_service<vdb_mapping_interfaces::srv::LoadMap>(
+      "~/load_map", std::bind(&VDBMappingROS2::loadMap, this, _1, _2));
+
+    m_load_map_from_pcd_service = this->create_service<vdb_mapping_interfaces::srv::LoadMapFromPCD>(
+      "~/load_map_from_pcd", std::bind(&VDBMappingROS2::loadMapFromPCD, this, _1, _2));
+
+    m_get_map_section_service = this->create_service<vdb_mapping_interfaces::srv::GetMapSection>(
+      "~/get_map_section", std::bind(&VDBMappingROS2::getMapSectionCallback, this, _1, _2));
+
+    m_trigger_map_section_update_service =
+      this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
+        "~/trigger_map_section_update",
+        std::bind(&VDBMappingROS2::triggerMapSectionUpdateCallback, this, _1, _2));
+
+    m_trigger_map_full_section_update_service =
+      this->create_service<vdb_mapping_interfaces::srv::TriggerMapSectionUpdate>(
+        "~/trigger_map_full_section_update",
+        std::bind(&VDBMappingROS2::triggerMapFullSectionUpdateCallback, this, _1, _2));
+
+    m_raytrace_service = this->create_service<vdb_mapping_interfaces::srv::Raytrace>(
+      "~/raytrace", std::bind(&VDBMappingROS2::raytraceCallback, this, _1, _2));
+
+    m_add_points_to_grid_service =
+      this->create_service<vdb_mapping_interfaces::srv::AddPointsToGrid>(
+        "~/add_points_to_grid", std::bind(&VDBMappingROS2::addPointsToGridCallback, this, _1, _2));
+
+    m_remove_points_from_grid_service =
+      this->create_service<vdb_mapping_interfaces::srv::RemovePointsFromGrid>(
+        "~/remove_points_from_grid",
+        std::bind(&VDBMappingROS2::removePointsFromGridCallback, this, _1, _2));
+  }
+  void setUpPublishers()
+  {
+    this->declare_parameter<bool>("publish_pointcloud", true);
+    this->get_parameter("publish_pointcloud", m_publish_pointcloud);
+    this->declare_parameter<bool>("publish_vis_marker", true);
+    this->get_parameter("publish_vis_marker", m_publish_vis_marker);
+    this->declare_parameter<bool>("publish_occupancy_grid", true);
+    this->get_parameter("publish_occupancy_grid", m_publish_occupancy_grid);
+    this->declare_parameter<bool>("publish_updates", false);
+    this->get_parameter("publish_updates", m_publish_updates);
+    this->declare_parameter<bool>("publish_overwrites", false);
+    this->get_parameter("publish_overwrites", m_publish_overwrites);
+    this->declare_parameter<bool>("publish_sections", false);
+    this->get_parameter("publish_sections", m_publish_sections);
+    this->declare_parameter<bool>("publish_full_sections", false);
+    this->get_parameter("publish_full_sections", m_publish_full_sections);
+
+    if (m_publish_pointcloud)
+    {
+      m_pointcloud_pub =
+        this->create_publisher<sensor_msgs::msg::PointCloud2>("~/vdb_map_pointcloud", 1);
+    }
+    if (m_publish_vis_marker)
+    {
+      m_visualization_marker_pub =
+        this->create_publisher<visualization_msgs::msg::Marker>("~/vdb_map_visualization", 1);
+    }
+    if (m_publish_occupancy_grid)
+    {
+      m_occupancy_grid_pub =
+        this->create_publisher<nav_msgs::msg::OccupancyGrid>("~/vdb_map_occupancy", 1);
+    }
+
+    if (m_publish_updates)
+    {
+      m_map_update_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
+        "~/vdb_map_updates", rclcpp::QoS(1).durability_volatile().best_effort());
+    }
+    if (m_publish_overwrites)
+    {
+      m_map_overwrite_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
+        "~/vdb_map_overwrites", rclcpp::QoS(1).durability_volatile().best_effort());
+    }
+    if (m_publish_sections)
+    {
+      m_map_section_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
+        "~/vdb_map_sections", rclcpp::QoS(1).durability_volatile().best_effort());
+
+      double section_update_rate;
+      this->declare_parameter<double>("section_update.rate", 1);
+      this->get_parameter("section_update.rate", section_update_rate);
+      m_section_timer =
+        this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
+                                std::bind(&VDBMappingROS2::sectionTimerCallback, this));
+
+      this->declare_parameter<double>("section_update.min_coord.x", -10);
+      this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
+      this->declare_parameter<double>("section_update.min_coord.y", -10);
+      this->get_parameter("section_update.min_coord.y", m_section_min_coord.y());
+      this->declare_parameter<double>("section_update.min_coord.z", -10);
+      this->get_parameter("section_update.min_coord.z", m_section_min_coord.z());
+      this->declare_parameter<double>("section_update.max_coord.x", 10);
+      this->get_parameter("section_update.max_coord.x", m_section_max_coord.x());
+      this->declare_parameter<double>("section_update.max_coord.y", 10);
+      this->get_parameter("section_update.max_coord.y", m_section_max_coord.y());
+      this->declare_parameter<double>("section_update.max_coord.z", 10);
+      this->get_parameter("section_update.max_coord.z", m_section_max_coord.z());
+      this->declare_parameter<std::string>("section_update.frame", m_robot_frame);
+      this->get_parameter("section_update.frame", m_section_update_frame);
+    }
+    if (m_publish_full_sections)
+    {
+      m_map_section_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
+        "~/vdb_map_full_sections", rclcpp::QoS(1).durability_volatile().best_effort());
+
+      double section_update_rate;
+      this->declare_parameter<double>("section_update.rate", 1);
+      this->get_parameter("section_update.rate", section_update_rate);
+      m_full_section_timer =
+        this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
+                                std::bind(&VDBMappingROS2::fullSectionTimerCallback, this));
+
+      this->declare_parameter<double>("section_update.min_coord.x", -10);
+      this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
+      this->declare_parameter<double>("section_update.min_coord.y", -10);
+      this->get_parameter("section_update.min_coord.y", m_section_min_coord.y());
+      this->declare_parameter<double>("section_update.min_coord.z", -10);
+      this->get_parameter("section_update.min_coord.z", m_section_min_coord.z());
+      this->declare_parameter<double>("section_update.max_coord.x", 10);
+      this->get_parameter("section_update.max_coord.x", m_section_max_coord.x());
+      this->declare_parameter<double>("section_update.max_coord.y", 10);
+      this->get_parameter("section_update.max_coord.y", m_section_max_coord.y());
+      this->declare_parameter<double>("section_update.max_coord.z", 10);
+      this->get_parameter("section_update.max_coord.z", m_section_max_coord.z());
+      this->declare_parameter<std::string>("section_update.frame", m_robot_frame);
+      this->get_parameter("section_update.frame", m_section_update_frame);
+    }
+  }
+
+  void setUpMapServer()
+  {
+    // Load initial map file
+    std::string initial_map_file;
+    bool set_background;
+    bool clear_map;
+    this->declare_parameter<std::string>("map_server.initial_map_file", "");
+    this->get_parameter("map_server.initial_map_file", initial_map_file);
+    this->declare_parameter<bool>("map_server.set_background", false);
+    this->get_parameter("map_server.set_background", set_background);
+    this->declare_parameter<bool>("map_server.clear_map", false);
+    this->get_parameter("map_server.clear_map", clear_map);
+    if (initial_map_file != "")
+    {
+      RCLCPP_INFO_STREAM(this->get_logger(), "Loading intial Map " << initial_map_file);
+      m_vdb_map->loadMapFromPCD(initial_map_file, set_background, clear_map);
+      publishMap();
+    }
+  }
+
+
   std::vector<rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr> m_cloud_subs;
   /*!
    * \brief Subscriber for raw pointclouds
