@@ -84,8 +84,8 @@ public:
     int occ_y_offset = 0;
     if (create_occupancy_grid)
     {
-      occupancy_grid_msg.info.height     = bbox.dim().y() - 1;
-      occupancy_grid_msg.info.width      = bbox.dim().x() - 1;
+      occupancy_grid_msg.info.height     = bbox.dim().y();
+      occupancy_grid_msg.info.width      = bbox.dim().x();
       occupancy_grid_msg.info.resolution = resolution;
       occupancy_grid_msg.data.resize(occupancy_grid_msg.info.width * occupancy_grid_msg.info.height,
                                      0);
