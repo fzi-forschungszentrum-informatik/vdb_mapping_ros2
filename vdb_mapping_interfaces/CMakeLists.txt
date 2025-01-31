@@ -16,6 +16,7 @@ find_package(std_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BoundingBox.msg"
   "msg/UpdateGrid.msg"
+  "srv/AddArtificialAreas.srv"
   "srv/AddPointsToGrid.srv"
   "srv/GetMapSection.srv"
   "srv/GetOccGrid.srv"

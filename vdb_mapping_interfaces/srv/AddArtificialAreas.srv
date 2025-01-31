@@ -1,0 +1,3 @@
+geometry_msgs/Polygon[] artificial_areas
+---
+bool success

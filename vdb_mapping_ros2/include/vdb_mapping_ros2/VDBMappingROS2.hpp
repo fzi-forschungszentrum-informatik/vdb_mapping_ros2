@@ -40,6 +40,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <vdb_mapping_interfaces/srv/add_artificial_areas.hpp>
 #include <vdb_mapping_interfaces/srv/add_points_to_grid.hpp>
 #include <vdb_mapping_interfaces/srv/get_map_section.hpp>
 #include <vdb_mapping_interfaces/srv/get_occ_grid.hpp>
@@ -641,6 +642,35 @@ public:
     return true;
   }
 
+  bool addArtificialAreasCallback(
+    const std::shared_ptr<vdb_mapping_interfaces::srv::AddArtificialAreas::Request> req,
+    const std::shared_ptr<vdb_mapping_interfaces::srv::AddArtificialAreas::Response> res)
+  {
+    std::vector<std::vector<Eigen::Matrix<double, 3, 1> > > artificial_areas;
+    for (auto& artificial_area : req->artificial_areas)
+    {
+      std::vector<Eigen::Matrix<double, 3, 1> > area;
+      for (auto& p : artificial_area.points)
+      {
+        area.push_back(Eigen::Matrix<double, 3, 1>(p.x, p.y, p.z));
+      }
+      artificial_areas.push_back(area);
+    }
+
+    m_vdb_map->addArtificialAreas(artificial_areas);
+    res->success = true;
+    return true;
+  }
+  bool removeArtificialAreasCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+    const std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+  {
+    (void)req;
+    m_vdb_map->restoreMapIntegrity();
+    res->success = true;
+    return true;
+  }
+
   void visualizationTimerCallback() { publishMap(); }
 
   void accumulationUpdateTimerCallback()
@@ -960,6 +990,16 @@ private:
       this->create_service<vdb_mapping_interfaces::srv::RemovePointsFromGrid>(
         "~/remove_points_from_grid",
         std::bind(&VDBMappingROS2::removePointsFromGridCallback, this, _1, _2));
+    
+    m_add_artificial_areas_service =
+      this->create_service<vdb_mapping_interfaces::srv::AddArtificialAreas>(
+        "~/add_artificial_areas",
+        std::bind(&VDBMappingROS2::addArtificialAreasCallback, this, _1, _2));
+    
+    m_remove_artificial_areas_service =
+      this->create_service<std_srvs::srv::Trigger>(
+        "~/remove_artificial_areas",
+        std::bind(&VDBMappingROS2::removeArtificialAreasCallback, this, _1, _2));
   }
   void setUpPublishers()
   {
@@ -1175,6 +1215,16 @@ private:
    */
   rclcpp::Service<vdb_mapping_interfaces::srv::RemovePointsFromGrid>::SharedPtr
     m_remove_points_from_grid_service;
+  /*!
+   * \brief Service for adding artificial areas to the grid.
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::AddArtificialAreas>::SharedPtr
+    m_add_artificial_areas_service;
+  /*!
+   * \brief Service for removing artificial areas from the grid.
+   */
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr
+    m_remove_artificial_areas_service;
   /*!
    * \brief Transformation buffer
    */
