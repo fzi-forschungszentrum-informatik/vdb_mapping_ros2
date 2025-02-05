@@ -75,6 +75,7 @@ struct SensorSource
   std::string topic;
   std::string sensor_origin_frame;
   double max_range;
+  bool reliable;
 };
 
 template <typename VDBMappingT>
@@ -756,6 +757,8 @@ private:
         this->get_parameter(source_id + ".sensor_origin_frame", sensor_source.sensor_origin_frame);
         this->declare_parameter<double>(source_id + ".max_range", 0);
         this->get_parameter(source_id + ".max_range", sensor_source.max_range);
+        this->declare_parameter<bool>(source_id + ".reliable", false);
+        this->get_parameter(source_id + ".reliable", sensor_source.reliable);
         RCLCPP_INFO_STREAM(this->get_logger(), "Setting up source: " << source_id);
 
         if (sensor_source.topic.empty())
@@ -775,10 +778,19 @@ private:
                              "Using " << sensor_source.sensor_origin_frame << " as raycast origin");
         }
 
+        rclcpp::QoS qos_profile(1);
+        if (sensor_source.reliable)
+        {
+          qos_profile = qos_profile.durability_volatile().reliable();
+        }
+        else
+        {
+          qos_profile = qos_profile.durability_volatile().best_effort();
+        }
 
         m_cloud_subs.push_back(this->create_subscription<sensor_msgs::msg::PointCloud2>(
           sensor_source.topic,
-          rclcpp::QoS(1).durability_volatile().best_effort(),
+          qos_profile,
           [&, sensor_source](const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg) {
             cloudCallback(cloud_msg, sensor_source);
           }));
