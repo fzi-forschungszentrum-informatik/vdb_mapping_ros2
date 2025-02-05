@@ -1,3 +1,3 @@
-geometry_msgs/Polygon[] artificial_areas
+geometry_msgs/PolygonStamped[] artificial_areas
 ---
 bool success

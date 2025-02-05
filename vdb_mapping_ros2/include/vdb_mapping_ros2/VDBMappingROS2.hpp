@@ -650,7 +650,7 @@ public:
     for (auto& artificial_area : req->artificial_areas)
     {
       std::vector<Eigen::Matrix<double, 3, 1> > area;
-      for (auto& p : artificial_area.points)
+      for (auto& p : artificial_area.polygon.points)
       {
         area.push_back(Eigen::Matrix<double, 3, 1>(p.x, p.y, p.z));
       }
