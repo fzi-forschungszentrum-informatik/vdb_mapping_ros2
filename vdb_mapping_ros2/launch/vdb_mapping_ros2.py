@@ -20,13 +20,16 @@ def generate_launch_description():
         name='Container',
         namespace='',
         package='rclcpp_components',
-        executable='component_container',
+        executable='component_container_mt',
         composable_node_descriptions=[
             ComposableNode(
                 package='vdb_mapping_ros2',
                 plugin='vdb_mapping_ros2::vdb_mapping_ros2_component',
                 name='vdb_mapping',
-                parameters=[config],
+                parameters=[
+                    config,
+                    {"use_dedicated_executors": True}
+                ],
             )
         ],
         output='screen',

@@ -93,6 +93,14 @@ public:
     m_tf_buffer   = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     m_tf_listener = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer);
 
+    m_integration_cb_group =
+      this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    m_integration_cb_group =
+      this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    m_visualization_cb_group =
+      this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    m_remote_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
     setUpVDBMap();
     setUpLocalSources();
     setUpRemoteSources();
@@ -227,7 +235,6 @@ public:
       typename VDBMappingT::UpdateGridT::Ptr update;
       typename VDBMappingT::UpdateGridT::Ptr overwrite;
       m_vdb_map->integrateUpdate(update, overwrite);
-      m_vdb_map->resetUpdate();
       publishUpdates(update, overwrite, cloud_msg->header.stamp);
     }
   }
@@ -294,6 +301,7 @@ public:
     visualization_msgs::msg::Marker visualization_marker_msg;
     sensor_msgs::msg::PointCloud2 cloud_msg;
     nav_msgs::msg::OccupancyGrid occupancy_grid_msg;
+    std::shared_lock map_lock(*m_vdb_map->getMapMutex());
     VDBMappingTools<VDBMappingT>::createMappingOutput(m_vdb_map->getGrid(),
                                                       m_map_frame,
                                                       visualization_marker_msg,
@@ -306,6 +314,7 @@ public:
                                                       m_upper_visualization_z_limit,
                                                       m_resolution,
                                                       m_two_dim_projection_threshold);
+    map_lock.unlock();
     if (publish_vis_marker)
     {
       visualization_marker_msg.header.stamp = this->now();
@@ -633,6 +642,7 @@ public:
   }
 
   void visualizationTimerCallback() { publishMap(); }
+
   void accumulationUpdateTimerCallback()
   {
     typename VDBMappingT::UpdateGridT::Ptr update;
@@ -640,7 +650,6 @@ public:
     m_vdb_map->integrateUpdate(update, overwrite);
 
     publishUpdates(update, overwrite, this->now());
-    m_vdb_map->resetUpdate();
   }
   void sectionTimerCallback()
   {
@@ -660,7 +669,6 @@ public:
                    ex.what());
       return;
     }
-
     typename VDBMappingT::UpdateGridT::Ptr section = m_vdb_map->getMapSectionUpdateGrid(
       m_section_min_coord, m_section_max_coord, tf2::transformToEigen(map_to_robot_tf).matrix());
     vdb_mapping_interfaces::msg::UpdateGrid msg;
@@ -728,7 +736,9 @@ private:
     {
       RCLCPP_WARN(this->get_logger(), "No map frame specified");
     }
+    std::unique_lock map_lock(*m_vdb_map->getMapMutex());
     m_vdb_map->getGrid()->insertMeta("ros/map_frame", openvdb::StringMetadata(m_map_frame));
+    map_lock.unlock();
     this->declare_parameter<std::string>("robot_frame", "");
     this->get_parameter("robot_frame", m_robot_frame);
     if (m_robot_frame.empty())
@@ -778,6 +788,9 @@ private:
                              "Using " << sensor_source.sensor_origin_frame << " as raycast origin");
         }
 
+        rclcpp::SubscriptionOptions opt;
+        opt.callback_group = m_accumulation_cb_group;
+
         rclcpp::QoS qos_profile(1);
         if (sensor_source.reliable)
         {
@@ -793,7 +806,8 @@ private:
           qos_profile,
           [&, sensor_source](const std::shared_ptr<sensor_msgs::msg::PointCloud2> cloud_msg) {
             cloudCallback(cloud_msg, sensor_source);
-          }));
+          },
+          opt));
       }
       this->declare_parameter<bool>("accumulate_updates", false);
       this->get_parameter("accumulate_updates", m_accumulate_updates);
@@ -802,9 +816,10 @@ private:
         double accumulation_period;
         this->declare_parameter<double>("accumulation_period", 1);
         this->get_parameter("accumulation_period", accumulation_period);
-        m_accumulation_update_timer = this->create_wall_timer(
-          std::chrono::milliseconds((int)(1000 * accumulation_period)),
-          std::bind(&VDBMappingROS2::accumulationUpdateTimerCallback, this));
+        m_accumulation_update_timer =
+          this->create_wall_timer(std::chrono::milliseconds((int)(1000 * accumulation_period)),
+                                  std::bind(&VDBMappingROS2::accumulationUpdateTimerCallback, this),
+                                  m_integration_cb_group);
       }
     }
   }
@@ -902,7 +917,8 @@ private:
     {
       m_visualization_timer =
         this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / visualization_rate)),
-                                std::bind(&VDBMappingROS2::visualizationTimerCallback, this));
+                                std::bind(&VDBMappingROS2::visualizationTimerCallback, this),
+                                m_visualization_cb_group);
     }
   }
   void setUpServices()
@@ -998,7 +1014,8 @@ private:
       this->get_parameter("section_update.rate", section_update_rate);
       m_section_timer =
         this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
-                                std::bind(&VDBMappingROS2::sectionTimerCallback, this));
+                                std::bind(&VDBMappingROS2::sectionTimerCallback, this),
+                                m_remote_cb_group);
 
       this->declare_parameter<double>("section_update.min_coord.x", -10);
       this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
@@ -1025,7 +1042,8 @@ private:
       this->get_parameter("section_update.rate", section_update_rate);
       m_full_section_timer =
         this->create_wall_timer(std::chrono::milliseconds((int)(1000.0 / section_update_rate)),
-                                std::bind(&VDBMappingROS2::fullSectionTimerCallback, this));
+                                std::bind(&VDBMappingROS2::fullSectionTimerCallback, this),
+                                m_remote_cb_group);
 
       this->declare_parameter<double>("section_update.min_coord.x", -10);
       this->get_parameter("section_update.min_coord.x", m_section_min_coord.x());
@@ -1267,6 +1285,11 @@ private:
   std::shared_ptr<rclcpp::ParameterCallbackHandle> m_z_max_param_handle;
   double m_lower_visualization_z_limit;
   double m_upper_visualization_z_limit;
+
+  rclcpp::CallbackGroup::SharedPtr m_accumulation_cb_group;
+  rclcpp::CallbackGroup::SharedPtr m_integration_cb_group;
+  rclcpp::CallbackGroup::SharedPtr m_visualization_cb_group;
+  rclcpp::CallbackGroup::SharedPtr m_remote_cb_group;
 };
 
 
