@@ -960,6 +960,9 @@ private:
     m_save_map_service = this->create_service<std_srvs::srv::Trigger>(
       "~/save_map", std::bind(&VDBMappingROS2::saveMap, this, _1, _2));
 
+    m_save_map_to_pcd_service = this->create_service<std_srvs::srv::Trigger>(
+      "~/save_map_to_pcd", std::bind(&VDBMappingROS2::saveMapToPCD, this, _1, _2));
+
     m_load_map_service = this->create_service<vdb_mapping_interfaces::srv::LoadMap>(
       "~/load_map", std::bind(&VDBMappingROS2::loadMap, this, _1, _2));
 
