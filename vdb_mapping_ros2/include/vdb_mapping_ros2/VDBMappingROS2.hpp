@@ -646,18 +646,45 @@ public:
     const std::shared_ptr<vdb_mapping_interfaces::srv::AddArtificialAreas::Request> req,
     const std::shared_ptr<vdb_mapping_interfaces::srv::AddArtificialAreas::Response> res)
   {
-    std::vector<std::vector<Eigen::Matrix<double, 3, 1> > > artificial_areas;
-    for (auto& artificial_area : req->artificial_areas)
+    std::vector<std::vector<Eigen::Matrix<double, 4, 1> > > artificial_areas;
+    if (req->artificial_areas.size() > 0)
     {
-      std::vector<Eigen::Matrix<double, 3, 1> > area;
-      for (auto& p : artificial_area.polygon.points)
+      geometry_msgs::msg::TransformStamped source_to_map_tf;
+      try
       {
-        area.push_back(Eigen::Matrix<double, 3, 1>(p.x, p.y, p.z));
+        source_to_map_tf = m_tf_buffer->lookupTransform(m_map_frame,
+                                                        req->artificial_areas[0].header.frame_id,
+                                                        rclcpp::Time(0),
+                                                        rclcpp::Duration(0, 100000000));
       }
-      artificial_areas.push_back(area);
-    }
+      catch (tf2::TransformException& ex)
+      {
+        RCLCPP_ERROR(this->get_logger(),
+                     "Could not transform %s to %s: %s",
+                     m_map_frame.c_str(),
+                     req->artificial_areas[0].header.frame_id.c_str(),
+                     ex.what());
+        res->success = false;
+        return true;
+      }
+      Eigen::Matrix<double, 4, 4> transform;
+      transform = tf2::transformToEigen(source_to_map_tf).matrix();
 
-    m_vdb_map->addArtificialAreas(artificial_areas);
+      for (auto& artificial_area : req->artificial_areas)
+      {
+        std::vector<Eigen::Matrix<double, 4, 1> > area;
+        for (auto& p : artificial_area.polygon.points)
+        {
+          area.push_back(transform * Eigen::Matrix<double, 4, 1>(p.x, p.y, p.z, 1.0));
+        }
+        artificial_areas.push_back(area);
+      }
+    }
+    double m_artificial_negative_height = -0.5;
+    double m_artificial_positive_height = 1.5;
+
+    m_vdb_map->addArtificialAreas(
+      artificial_areas, m_artificial_negative_height, m_artificial_positive_height);
     res->success = true;
     return true;
   }
