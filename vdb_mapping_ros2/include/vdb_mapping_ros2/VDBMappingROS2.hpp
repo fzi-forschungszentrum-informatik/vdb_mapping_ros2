@@ -194,8 +194,11 @@ public:
     // Get the origin of the sensor used as a starting point of the ray cast
     try
     {
-      cloud_origin_tf = m_tf_buffer->lookupTransform(
-        m_map_frame, sensor_frame, cloud_msg->header.stamp, rclcpp::Duration(0, 100000000));
+      cloud_origin_tf =
+        m_tf_buffer->lookupTransform(m_map_frame,
+                                     sensor_frame,
+                                     cloud_msg->header.stamp,
+                                     rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
     }
     catch (tf2::TransformException& ex)
     {
@@ -212,10 +215,11 @@ public:
       geometry_msgs::msg::TransformStamped origin_to_map_tf;
       try
       {
-        origin_to_map_tf = m_tf_buffer->lookupTransform(m_map_frame,
-                                                        cloud_msg->header.frame_id,
-                                                        cloud_msg->header.stamp,
-                                                        rclcpp::Duration(0, 100000000));
+        origin_to_map_tf =
+          m_tf_buffer->lookupTransform(m_map_frame,
+                                       cloud_msg->header.frame_id,
+                                       cloud_msg->header.stamp,
+                                       rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
       }
       catch (tf2::TransformException& ex)
       {
@@ -423,8 +427,11 @@ public:
     geometry_msgs::msg::TransformStamped source_to_map_tf;
     try
     {
-      source_to_map_tf = m_tf_buffer->lookupTransform(
-        m_map_frame, req->header.frame_id, rclcpp::Time(0), rclcpp::Duration(1, 0));
+      source_to_map_tf =
+        m_tf_buffer->lookupTransform(m_map_frame,
+                                     req->header.frame_id,
+                                     rclcpp::Time(0),
+                                     rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
     }
     catch (tf2::TransformException& ex)
     {
@@ -607,10 +614,11 @@ public:
     geometry_msgs::msg::TransformStamped reference_tf;
     try
     {
-      reference_tf = m_tf_buffer->lookupTransform(m_map_frame,
-                                                  req->header.frame_id.c_str(),
-                                                  req->header.stamp,
-                                                  rclcpp::Duration(0, 100000000));
+      reference_tf =
+        m_tf_buffer->lookupTransform(m_map_frame,
+                                     req->header.frame_id.c_str(),
+                                     req->header.stamp,
+                                     rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
 
       Eigen::Matrix<double, 4, 4> m = tf2::transformToEigen(reference_tf).matrix();
       Eigen::Matrix<double, 4, 1> origin, direction;
@@ -652,10 +660,11 @@ public:
       geometry_msgs::msg::TransformStamped source_to_map_tf;
       try
       {
-        source_to_map_tf = m_tf_buffer->lookupTransform(m_map_frame,
-                                                        req->artificial_areas[0].header.frame_id,
-                                                        rclcpp::Time(0),
-                                                        rclcpp::Duration(0, 100000000));
+        source_to_map_tf =
+          m_tf_buffer->lookupTransform(m_map_frame,
+                                       req->artificial_areas[0].header.frame_id,
+                                       rclcpp::Time(0),
+                                       rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
       }
       catch (tf2::TransformException& ex)
       {
@@ -713,8 +722,11 @@ public:
     try
     {
       // Get sensor origin transform in map coordinates
-      map_to_robot_tf = m_tf_buffer->lookupTransform(
-        m_map_frame, m_section_update_frame, rclcpp::Time(0), rclcpp::Duration(1, 0));
+      map_to_robot_tf =
+        m_tf_buffer->lookupTransform(m_map_frame,
+                                     m_section_update_frame,
+                                     rclcpp::Time(0),
+                                     rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
     }
     catch (tf2::TransformException& ex)
     {
@@ -739,8 +751,11 @@ public:
     try
     {
       // Get sensor origin transform in map coordinates
-      map_to_robot_tf = m_tf_buffer->lookupTransform(
-        m_map_frame, m_section_update_frame, rclcpp::Time(0), rclcpp::Duration(1, 0));
+      map_to_robot_tf =
+        m_tf_buffer->lookupTransform(m_map_frame,
+                                     m_section_update_frame,
+                                     rclcpp::Time(0),
+                                     rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
     }
     catch (tf2::TransformException& ex)
     {
@@ -782,6 +797,8 @@ private:
     this->get_parameter("map_directory_path", m_config.map_directory_path);
     this->declare_parameter<int>("two_dim_projection_threshold", 5);
     this->get_parameter("two_dim_projection_threshold", m_two_dim_projection_threshold);
+    this->declare_parameter<double>("tf_lookup_timeout", 0.1);
+    this->get_parameter("tf_lookup_timeout", m_tf_lookup_timeout);
 
     // Configuring the VDB map
     m_vdb_map->setConfig(m_config);
@@ -1352,6 +1369,11 @@ private:
    * \brief Specifies the number of voxels which count as occupied for the occupancy grid
    */
   int m_two_dim_projection_threshold;
+
+  /*!
+   * \brief Specifies the timeout for tf lookups when inserting a scan in seconds
+   */
+  double m_tf_lookup_timeout;
 
   /*!
    * \brief Compression level used for creating the byte array message.
