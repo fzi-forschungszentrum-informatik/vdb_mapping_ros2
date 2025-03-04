@@ -30,9 +30,6 @@ find_package(rclcpp_components REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-include_directories(include)
-
-
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   rclcpp
   rclcpp_components
@@ -65,7 +62,7 @@ add_library(vdb_mapping_ros2_component SHARED
   src/vdb_mapping_ros2_component.cpp
 )
 target_link_libraries(vdb_mapping_ros2_component
-  vdb_mapping::vdb_mapping
+  ${PROJECT_NAME}
 )
 
 ament_target_dependencies(vdb_mapping_ros2_component
