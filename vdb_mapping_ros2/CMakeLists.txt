@@ -44,6 +44,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   vdb_mapping_interfaces
   visualization_msgs
   pcl_conversions
+  backward_ros
 )
 
 add_library(${PROJECT_NAME} INTERFACE)

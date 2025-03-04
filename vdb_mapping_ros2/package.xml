@@ -23,7 +23,7 @@
   <depend>vdb_mapping_interfaces</depend>
   <depend>visualization_msgs</depend>
   <depend>pcl_conversions</depend>
-
+  <depend>backward_ros</depend>
 
 
   <export>
