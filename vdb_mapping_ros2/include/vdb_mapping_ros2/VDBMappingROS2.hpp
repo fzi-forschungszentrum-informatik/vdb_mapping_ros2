@@ -628,7 +628,7 @@ public:
       origin    = m * origin;
       direction = m * direction;
 
-      openvdb::Vec3d end_point;
+      auto end_point = openvdb::Vec3d();
 
       res->success =
         m_vdb_map->raytrace(openvdb::Vec3d(origin.x(), origin.y(), origin.z()),
