@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.16.3)
 project(vdb_mapping_ros2)
 
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
@@ -54,6 +54,9 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} INTERFACE
   vdb_mapping::vdb_mapping
 )
+
+target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_17)
+
 ament_target_dependencies(${PROJECT_NAME} INTERFACE
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -64,6 +67,8 @@ add_library(vdb_mapping_ros2_component SHARED
 target_link_libraries(vdb_mapping_ros2_component
   ${PROJECT_NAME}
 )
+
+target_compile_features(vdb_mapping_ros2_component PUBLIC cxx_std_17)
 
 ament_target_dependencies(vdb_mapping_ros2_component
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
