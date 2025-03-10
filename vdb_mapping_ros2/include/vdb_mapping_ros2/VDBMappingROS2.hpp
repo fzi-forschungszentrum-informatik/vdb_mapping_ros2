@@ -365,14 +365,18 @@ public:
   void mapSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
   {
     m_vdb_map->applyMapSectionUpdateGrid(
-      m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
+      m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map),
+      m_smooth_remote_sections,
+      m_remote_section_smoothing_iterations);
   }
 
   void
   mapFullSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
   {
     m_vdb_map->applyMapSectionGrid(
-      m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map));
+      m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map),
+      m_smooth_remote_sections,
+      m_remote_section_smoothing_iterations);
   }
 
   /*!
@@ -799,6 +803,11 @@ private:
     this->get_parameter("two_dim_projection_threshold", m_two_dim_projection_threshold);
     this->declare_parameter<double>("tf_lookup_timeout", 0.1);
     this->get_parameter("tf_lookup_timeout", m_tf_lookup_timeout);
+    this->declare_parameter<bool>("smooth_remote_sections", false);
+    this->get_parameter("smooth_remote_sections", m_smooth_remote_sections);
+    this->declare_parameter<int>("remote_section_smoothing_iterations", 2);
+    this->get_parameter("remote_section_smoothing_iterations",
+                        m_remote_section_smoothing_iterations);
 
     // Configuring the VDB map
     m_vdb_map->setConfig(m_config);
@@ -1333,6 +1342,14 @@ private:
    * \brief Map of remote mapping source connections
    */
   std::map<std::string, RemoteSource> m_remote_sources;
+  /*!
+   * \brief Specifies whether the remote sections should be smoothed before integration
+   */
+  bool m_smooth_remote_sections;
+  /*!
+   * \brief Specifies the amount of smoothing applied to the remote sections
+   */
+  int m_remote_section_smoothing_iterations;
   /*!
    * \brief Timer for map visualization
    */

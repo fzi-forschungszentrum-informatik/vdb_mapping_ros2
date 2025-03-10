@@ -24,10 +24,12 @@
     publish_overwrites: false
     publish_sections: false
 
+    smooth_remote_sections: true
+    remote_section_smoothing_iterations: 2
+
     remote_sources: [vdb_mapping]
     vdb_mapping:
       namespace: vdb_mapping
       apply_remote_updates: false
       apply_remote_overwrites: true
       apply_remote_sections: true
-
