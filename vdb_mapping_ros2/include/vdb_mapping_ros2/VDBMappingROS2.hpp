@@ -783,9 +783,12 @@ public:
 private:
   void setUpVDBMap()
   {
+    bool fast_mode;
+    this->declare_parameter<bool>("fast_mode", false);
+    this->get_parameter("fast_mode", fast_mode);
     this->declare_parameter<double>("resolution", 0.1);
     this->get_parameter("resolution", m_resolution);
-    m_vdb_map = std::make_shared<VDBMappingT>(m_resolution);
+    m_vdb_map = std::make_shared<VDBMappingT>(m_resolution, fast_mode);
 
     this->declare_parameter<double>("max_range", 10.0);
     this->get_parameter("max_range", m_config.max_range);

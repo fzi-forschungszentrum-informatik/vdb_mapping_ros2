@@ -10,6 +10,7 @@
     thres_min: 0.49
     thres_max: 0.51
     map_save_dir: ""
+    fast_mode: true
 
     # Visualizations
     publish_pointcloud: true
