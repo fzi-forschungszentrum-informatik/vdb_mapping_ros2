@@ -107,10 +107,14 @@ public:
     {
       if (create_occupancy_grid)
       {
-        int vdb_index_to_occ_index = (iter.getCoord().y() + occ_y_offset) * bbox.dim().x() +
-                                     (iter.getCoord().x() + occ_x_offset);
-        occ_voxel_projection_grid[vdb_index_to_occ_index] += 1;
+        if(bbox.isInside(iter.getCoord()))
+        {
+          int vdb_index_to_occ_index = (iter.getCoord().y() + occ_y_offset) * bbox.dim().x() +
+                                       (iter.getCoord().x() + occ_x_offset);
+          occ_voxel_projection_grid[vdb_index_to_occ_index] += 1;
+        }
       }
+
       openvdb::Vec3d world_coord = grid->indexToWorld(iter.getCoord());
 
       if (world_coord.z() < min_z || world_coord.z() > max_z)
