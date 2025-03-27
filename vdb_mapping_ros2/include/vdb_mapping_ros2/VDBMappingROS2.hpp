@@ -94,9 +94,7 @@ public:
     m_tf_buffer   = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     m_tf_listener = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer);
 
-    m_integration_cb_group =
-      this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-    m_integration_cb_group =
+    m_accumulation_cb_group =
       this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
     m_visualization_cb_group =
       this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -896,16 +894,7 @@ private:
       }
       this->declare_parameter<bool>("accumulate_updates", false);
       this->get_parameter("accumulate_updates", m_accumulate_updates);
-      if (m_accumulate_updates)
-      {
-        double accumulation_period;
-        this->declare_parameter<double>("accumulation_period", 1);
-        this->get_parameter("accumulation_period", accumulation_period);
-        m_accumulation_update_timer =
-          this->create_wall_timer(std::chrono::milliseconds((int)(1000 * accumulation_period)),
-                                  std::bind(&VDBMappingROS2::accumulationUpdateTimerCallback, this),
-                                  m_integration_cb_group);
-      }
+
     }
   }
   void setUpRemoteSources()
@@ -1362,10 +1351,6 @@ private:
    */
   bool m_accumulate_updates;
   /*!
-   * \brief Timer for integrating accumulated data
-   */
-  rclcpp::TimerBase::SharedPtr m_accumulation_update_timer;
-  /*!
    * \brief Timer for publishing map sections
    */
   rclcpp::TimerBase::SharedPtr m_section_timer;
@@ -1406,7 +1391,6 @@ private:
   double m_upper_visualization_z_limit;
 
   rclcpp::CallbackGroup::SharedPtr m_accumulation_cb_group;
-  rclcpp::CallbackGroup::SharedPtr m_integration_cb_group;
   rclcpp::CallbackGroup::SharedPtr m_visualization_cb_group;
   rclcpp::CallbackGroup::SharedPtr m_remote_cb_group;
 };
