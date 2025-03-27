@@ -73,9 +73,11 @@ struct RemoteSource
 
 struct SensorSource
 {
+  std::string source_id;
   std::string topic;
   std::string sensor_origin_frame;
   double max_range;
+  double max_rate;
   bool reliable;
 };
 
@@ -232,7 +234,7 @@ public:
       cloud->header.frame_id = m_map_frame;
     }
     m_vdb_map->accumulateUpdate(
-      cloud, tf2::transformToEigen(cloud_origin_tf).translation(), sensor_source.max_range);
+      cloud, tf2::transformToEigen(cloud_origin_tf).translation(), sensor_source.source_id);
     if (!m_accumulate_updates)
     {
       typename VDBMappingT::UpdateGridT::Ptr update;
@@ -781,12 +783,13 @@ public:
 private:
   void setUpVDBMap()
   {
-    bool fast_mode;
     this->declare_parameter<bool>("fast_mode", false);
-    this->get_parameter("fast_mode", fast_mode);
+    this->get_parameter("fast_mode", m_config.fast_mode);
+    this->declare_parameter<double>("accumulation_period", 1);
+    this->get_parameter("accumulation_period", m_config.accumulation_period);
     this->declare_parameter<double>("resolution", 0.1);
     this->get_parameter("resolution", m_resolution);
-    m_vdb_map = std::make_shared<VDBMappingT>(m_resolution, fast_mode);
+    m_vdb_map = std::make_shared<VDBMappingT>(m_resolution);
 
     this->declare_parameter<double>("max_range", 10.0);
     this->get_parameter("max_range", m_config.max_range);
@@ -844,12 +847,15 @@ private:
       for (auto& source_id : source_ids)
       {
         SensorSource sensor_source;
+        sensor_source.source_id = source_id;
         this->declare_parameter<std::string>(source_id + ".topic", "");
         this->get_parameter(source_id + ".topic", sensor_source.topic);
         this->declare_parameter<std::string>(source_id + ".sensor_origin_frame", "");
         this->get_parameter(source_id + ".sensor_origin_frame", sensor_source.sensor_origin_frame);
         this->declare_parameter<double>(source_id + ".max_range", 0);
         this->get_parameter(source_id + ".max_range", sensor_source.max_range);
+        this->declare_parameter<double>(source_id + ".max_rate", 0);
+        this->get_parameter(source_id + ".max_rate", sensor_source.max_rate);
         this->declare_parameter<bool>(source_id + ".reliable", false);
         this->get_parameter(source_id + ".reliable", sensor_source.reliable);
         RCLCPP_INFO_STREAM(this->get_logger(), "Setting up source: " << source_id);
@@ -891,6 +897,7 @@ private:
             cloudCallback(cloud_msg, sensor_source);
           },
           opt));
+        m_vdb_map->addInputSource(sensor_source.source_id, sensor_source.max_range, sensor_source.max_rate); 
       }
       this->declare_parameter<bool>("accumulate_updates", false);
       this->get_parameter("accumulate_updates", m_accumulate_updates);
