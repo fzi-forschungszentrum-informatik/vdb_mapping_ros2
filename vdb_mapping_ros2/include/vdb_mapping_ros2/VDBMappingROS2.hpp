@@ -229,7 +229,7 @@ public:
       pcl::transformPointCloud(*cloud, *cloud, tf2::transformToEigen(origin_to_map_tf).matrix());
       cloud->header.frame_id = m_map_frame;
     }
-    m_vdb_map->accumulateUpdate(
+    m_vdb_map->addDataToAccumulate(
       cloud, tf2::transformToEigen(cloud_origin_tf).translation(), sensor_source.source_id);
     if (!m_accumulate_updates)
     {

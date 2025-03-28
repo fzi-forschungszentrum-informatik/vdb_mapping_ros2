@@ -107,7 +107,7 @@ public:
     {
       if (create_occupancy_grid)
       {
-        if(bbox.isInside(iter.getCoord()))
+        if (bbox.isInside(iter.getCoord()))
         {
           int vdb_index_to_occ_index = (iter.getCoord().y() + occ_y_offset) * bbox.dim().x() +
                                        (iter.getCoord().x() + occ_x_offset);
