@@ -59,14 +59,10 @@
 
 struct RemoteSource
 {
-  rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_update_sub;
-  rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_overwrite_sub;
   rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_section_sub;
   rclcpp::Subscription<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr map_full_section_sub;
   rclcpp::Client<vdb_mapping_interfaces::srv::GetMapSection>::SharedPtr get_map_section_client;
   rclcpp::Client<vdb_mapping_interfaces::srv::GetMapSection>::SharedPtr get_map_full_section_client;
-  bool apply_remote_updates;
-  bool apply_remote_overwrites;
   bool apply_remote_sections;
   bool apply_remote_full_sections;
 };
@@ -237,10 +233,7 @@ public:
       cloud, tf2::transformToEigen(cloud_origin_tf).translation(), sensor_source.source_id);
     if (!m_accumulate_updates)
     {
-      typename VDBMappingT::UpdateGridT::Ptr update;
-      typename VDBMappingT::UpdateGridT::Ptr overwrite;
-      m_vdb_map->integrateUpdate(update, overwrite);
-      publishUpdates(update, overwrite, cloud_msg->header.stamp);
+      m_vdb_map->integrateUpdate();
     }
   }
   /*!
@@ -255,35 +248,10 @@ public:
   {
     Eigen::Matrix<double, 3, 1> sensor_to_map_eigen =
       tf2::transformToEigen(transform).translation();
-    typename VDBMappingT::UpdateGridT::Ptr update;
-    typename VDBMappingT::UpdateGridT::Ptr overwrite;
     // Integrate data into vdb grid
-    m_vdb_map->insertPointCloud(cloud, sensor_to_map_eigen, update, overwrite);
-    publishUpdates(update, overwrite, transform.header.stamp);
+    m_vdb_map->insertPointCloud(cloud, sensor_to_map_eigen);
   }
 
-  void publishUpdates(typename VDBMappingT::UpdateGridT::Ptr update,
-                      typename VDBMappingT::UpdateGridT::Ptr overwrite,
-                      rclcpp::Time stamp)
-  {
-    std_msgs::msg::Header header;
-    header.frame_id = m_map_frame;
-    header.stamp    = stamp;
-    if (m_publish_updates)
-    {
-      vdb_mapping_interfaces::msg::UpdateGrid msg;
-      msg.map    = m_vdb_map->template gridToByteArray<typename VDBMappingT::UpdateGridT>(update);
-      msg.header = header;
-      m_map_update_pub->publish(msg);
-    }
-    if (m_publish_overwrites)
-    {
-      vdb_mapping_interfaces::msg::UpdateGrid msg;
-      msg.map = m_vdb_map->template gridToByteArray<typename VDBMappingT::UpdateGridT>(overwrite);
-      msg.header = header;
-      m_map_update_pub->publish(msg);
-    }
-  }
   /*!
    * \brief Publishes a marker array and pointcloud representation of the map
    */
@@ -338,28 +306,6 @@ public:
       occupancy_grid_msg.info.resolution = m_resolution;
       m_occupancy_grid_pub->publish(occupancy_grid_msg);
     }
-  }
-  /*!
-   * \brief Listens to map updates and creats a map from these
-   *
-   * \param update_msg Single map update from a remote mapping instance
-   */
-  void mapUpdateCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
-  {
-    m_vdb_map->updateMap(
-      m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
-  }
-
-  /*!
-   * \brief Listens to map overwrites and creates a map from these
-   *
-   * \param update_msg Single map overwrite from a remote mapping instance
-   */
-  void
-  mapOverwriteCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
-  {
-    m_vdb_map->overwriteMap(
-      m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map));
   }
 
   void mapSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
@@ -500,9 +446,8 @@ public:
       auto response = result.get();
       if (response->success)
       {
-        m_vdb_map->overwriteMap(
-          m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(
-            response->section.map));
+        m_vdb_map->updateMap(m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(
+          response->section.map));
       }
       res->success = response->success;
     }
@@ -552,9 +497,8 @@ public:
       auto response = result.get();
       if (response->success)
       {
-        m_vdb_map->overwriteMap(
-          m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(
-            response->section.map));
+        m_vdb_map->updateMap(m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(
+          response->section.map));
       }
       res->success = response->success;
     }
@@ -712,14 +656,6 @@ public:
 
   void visualizationTimerCallback() { publishMap(); }
 
-  void accumulationUpdateTimerCallback()
-  {
-    typename VDBMappingT::UpdateGridT::Ptr update;
-    typename VDBMappingT::UpdateGridT::Ptr overwrite;
-    m_vdb_map->integrateUpdate(update, overwrite);
-
-    publishUpdates(update, overwrite, this->now());
-  }
   void sectionTimerCallback()
   {
     geometry_msgs::msg::TransformStamped map_to_robot_tf;
@@ -897,11 +833,11 @@ private:
             cloudCallback(cloud_msg, sensor_source);
           },
           opt));
-        m_vdb_map->addInputSource(sensor_source.source_id, sensor_source.max_range, sensor_source.max_rate); 
+        m_vdb_map->addInputSource(
+          sensor_source.source_id, sensor_source.max_range, sensor_source.max_rate);
       }
       this->declare_parameter<bool>("accumulate_updates", false);
       this->get_parameter("accumulate_updates", m_accumulate_updates);
-
     }
   }
   void setUpRemoteSources()
@@ -920,33 +856,12 @@ private:
       this->get_parameter(source_id + ".namespace", remote_namespace);
 
       RemoteSource remote_source;
-      this->declare_parameter<bool>(source_id + ".apply_remote_updates", false);
-      this->get_parameter(source_id + ".apply_remote_updates", remote_source.apply_remote_updates);
-      this->declare_parameter<bool>(source_id + ".apply_remote_overwrites", false);
-      this->get_parameter(source_id + ".apply_remote_overwrites",
-                          remote_source.apply_remote_overwrites);
       this->declare_parameter<bool>(source_id + ".apply_remote_sections", false);
       this->get_parameter(source_id + ".apply_remote_sections",
                           remote_source.apply_remote_sections);
       this->declare_parameter<bool>(source_id + ".apply_remote_full_sections", false);
       this->get_parameter(source_id + ".apply_remote_full_sections",
                           remote_source.apply_remote_full_sections);
-      if (remote_source.apply_remote_updates)
-      {
-        remote_source.map_update_sub =
-          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
-            remote_namespace + "/vdb_map_updates",
-            rclcpp::QoS(10).durability_volatile().best_effort(),
-            std::bind(&VDBMappingROS2::mapUpdateCallback, this, _1));
-      }
-      if (remote_source.apply_remote_overwrites)
-      {
-        remote_source.map_overwrite_sub =
-          this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
-            remote_namespace + "/vdb_map_overwrites",
-            rclcpp::QoS(10).durability_volatile().best_effort(),
-            std::bind(&VDBMappingROS2::mapOverwriteCallback, this, _1));
-      }
       if (remote_source.apply_remote_sections)
       {
         remote_source.map_section_sub =
@@ -1062,10 +977,6 @@ private:
     this->get_parameter("publish_vis_marker", m_publish_vis_marker);
     this->declare_parameter<bool>("publish_occupancy_grid", true);
     this->get_parameter("publish_occupancy_grid", m_publish_occupancy_grid);
-    this->declare_parameter<bool>("publish_updates", false);
-    this->get_parameter("publish_updates", m_publish_updates);
-    this->declare_parameter<bool>("publish_overwrites", false);
-    this->get_parameter("publish_overwrites", m_publish_overwrites);
     this->declare_parameter<bool>("publish_sections", false);
     this->get_parameter("publish_sections", m_publish_sections);
     this->declare_parameter<bool>("publish_full_sections", false);
@@ -1087,16 +998,6 @@ private:
         this->create_publisher<nav_msgs::msg::OccupancyGrid>("~/vdb_map_occupancy", 1);
     }
 
-    if (m_publish_updates)
-    {
-      m_map_update_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
-        "~/vdb_map_updates", rclcpp::QoS(1).durability_volatile().best_effort());
-    }
-    if (m_publish_overwrites)
-    {
-      m_map_overwrite_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
-        "~/vdb_map_overwrites", rclcpp::QoS(1).durability_volatile().best_effort());
-    }
     if (m_publish_sections)
     {
       m_map_section_pub = this->create_publisher<vdb_mapping_interfaces::msg::UpdateGrid>(
@@ -1198,14 +1099,6 @@ private:
    * /brief Publisher for the OccupancyGrid.
    */
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr m_occupancy_grid_pub;
-  /*!
-   * \brief Publisher for map updates
-   */
-  rclcpp::Publisher<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr m_map_update_pub;
-  /*!
-   * \brief Publisher for map overwrites
-   */
-  rclcpp::Publisher<vdb_mapping_interfaces::msg::UpdateGrid>::SharedPtr m_map_overwrite_pub;
   /*!
    * \brief Publisher for map sections
    */
@@ -1317,14 +1210,6 @@ private:
    * \brief Specifies whether the map should be published as a occupancy grid!
    */
   bool m_publish_occupancy_grid;
-  /*!
-   * \brief Specifies whether the mapping publishes map updates for remote use
-   */
-  bool m_publish_updates;
-  /*!
-   * \brief Specifies whether the mapping publishes map overwrites for remote use
-   */
-  bool m_publish_overwrites;
   /*!
    * \brief Specifies whether the mapping publishes map sections for remote use
    */

@@ -30,8 +30,6 @@
       reliable: true
 
     # Remote mapping
-    publish_updates: true
-    publish_overwrites: true
     publish_sections: true
     section_update:
       rate: 1.0
