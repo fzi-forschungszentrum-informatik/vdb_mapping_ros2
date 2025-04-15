@@ -1,0 +1,6 @@
+std_msgs/Header header
+Ray[] rays
+---
+std_msgs/Header header
+bool[] successes
+geometry_msgs/Point[] end_points

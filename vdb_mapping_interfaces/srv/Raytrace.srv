@@ -1,7 +1,5 @@
 std_msgs/Header header
-geometry_msgs/Point origin
-geometry_msgs/Vector3 direction
-float32 max_ray_length
+Ray ray
 ---
 std_msgs/Header header
 bool success
