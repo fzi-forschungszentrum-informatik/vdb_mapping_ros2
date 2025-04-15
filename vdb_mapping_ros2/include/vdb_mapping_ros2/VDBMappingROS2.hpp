@@ -42,6 +42,7 @@
 #include <std_srvs/srv/trigger.hpp>
 #include <vdb_mapping_interfaces/srv/add_artificial_areas.hpp>
 #include <vdb_mapping_interfaces/srv/add_points_to_grid.hpp>
+#include <vdb_mapping_interfaces/srv/batch_raytrace.hpp>
 #include <vdb_mapping_interfaces/srv/get_map_section.hpp>
 #include <vdb_mapping_interfaces/srv/get_occ_grid.hpp>
 #include <vdb_mapping_interfaces/srv/load_map.hpp>
@@ -559,7 +560,24 @@ public:
   bool raytraceCallback(const std::shared_ptr<vdb_mapping_interfaces::srv::Raytrace::Request> req,
                         const std::shared_ptr<vdb_mapping_interfaces::srv::Raytrace::Response> res)
   {
+    auto batch_req = std::make_shared<vdb_mapping_interfaces::srv::BatchRaytrace::Request>();
+    auto batch_res = std::make_shared<vdb_mapping_interfaces::srv::BatchRaytrace::Response>();
+
+    batch_req->header = req->header;
+    batch_req->rays.push_back(req->ray);
+    batchRaytraceCallback(batch_req, batch_res);
+    res->header    = batch_res->header;
+    res->success   = batch_res->successes[0];
+    res->end_point = batch_res->end_points[0];
+
+    return true;
+  }
+  bool batchRaytraceCallback(
+    const std::shared_ptr<vdb_mapping_interfaces::srv::BatchRaytrace::Request> req,
+    const std::shared_ptr<vdb_mapping_interfaces::srv::BatchRaytrace::Response> res)
+  {
     geometry_msgs::msg::TransformStamped reference_tf;
+    res->successes.resize(req->rays.size());
     try
     {
       reference_tf =
@@ -567,36 +585,54 @@ public:
                                      req->header.frame_id.c_str(),
                                      req->header.stamp,
                                      rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
-
-      Eigen::Matrix<double, 4, 4> m = tf2::transformToEigen(reference_tf).matrix();
-      Eigen::Matrix<double, 4, 1> origin, direction;
-      origin << req->origin.x, req->origin.y, req->origin.z, 1;
-      direction << req->direction.x, req->direction.y, req->direction.z, 0;
-
-      origin    = m * origin;
-      direction = m * direction;
-
-      auto end_point = openvdb::Vec3d();
-
-      res->success =
-        m_vdb_map->raytrace(openvdb::Vec3d(origin.x(), origin.y(), origin.z()),
-                            openvdb::Vec3d(direction.x(), direction.y(), direction.z()),
-                            req->max_ray_length,
-                            end_point);
-
-      res->header.frame_id = m_map_frame;
-      res->header.stamp    = req->header.stamp;
-      res->end_point.x     = end_point.x();
-      res->end_point.y     = end_point.y();
-      res->end_point.z     = end_point.z();
     }
     catch (tf2::TransformException& ex)
     {
       RCLCPP_ERROR_STREAM(this->get_logger(), "Transform to map frame failed: " << ex.what());
-      res->success = false;
+      for (size_t i = 0; i < req->rays.size(); i++)
+      {
+        res->successes[i] = false;
+      }
     }
+
+    Eigen::Matrix<double, 4, 4> m = tf2::transformToEigen(reference_tf).matrix();
+
+    std::vector<openvdb::Vec3d> ray_origins_world;
+    std::vector<openvdb::Vec3d> ray_directions;
+    std::vector<double> max_ray_lengths;
+    std::vector<openvdb::Vec3d> end_points;
+
+    for (size_t i = 0; i < req->rays.size(); i++)
+    {
+      Eigen::Matrix<double, 4, 1> origin, direction;
+      origin << req->rays[i].origin.x, req->rays[i].origin.y, req->rays[i].origin.z, 1;
+      direction << req->rays[i].direction.x, req->rays[i].direction.y, req->rays[i].direction.z, 0;
+
+      origin    = m * origin;
+      direction = m * direction;
+
+      ray_origins_world.push_back(openvdb::Vec3d(origin.x(), origin.y(), origin.z()));
+      ray_directions.push_back(openvdb::Vec3d(direction.x(), direction.y(), direction.z()));
+      max_ray_lengths.push_back(req->rays[i].max_ray_length);
+    }
+    m_vdb_map->raytrace(
+      ray_origins_world, ray_directions, max_ray_lengths, res->successes, end_points);
+
+    for (size_t i = 0; i < end_points.size(); i++)
+    {
+      geometry_msgs::msg::Point p;
+      p.x = end_points[i].x();
+      p.y = end_points[i].y();
+      p.z = end_points[i].z();
+      res->end_points.push_back(p);
+    }
+
+    res->header.frame_id = m_map_frame;
+    res->header.stamp    = req->header.stamp;
+
     return true;
   }
+
 
   bool addArtificialAreasCallback(
     const std::shared_ptr<vdb_mapping_interfaces::srv::AddArtificialAreas::Request> req,
@@ -951,6 +987,9 @@ private:
     m_raytrace_service = this->create_service<vdb_mapping_interfaces::srv::Raytrace>(
       "~/raytrace", std::bind(&VDBMappingROS2::raytraceCallback, this, _1, _2));
 
+    m_batch_raytrace_service = this->create_service<vdb_mapping_interfaces::srv::BatchRaytrace>(
+      "~/batch_raytrace", std::bind(&VDBMappingROS2::batchRaytraceCallback, this, _1, _2));
+
     m_add_points_to_grid_service =
       this->create_service<vdb_mapping_interfaces::srv::AddPointsToGrid>(
         "~/add_points_to_grid", std::bind(&VDBMappingROS2::addPointsToGridCallback, this, _1, _2));
@@ -1137,6 +1176,10 @@ private:
    * \brief Service for raytracing
    */
   rclcpp::Service<vdb_mapping_interfaces::srv::Raytrace>::SharedPtr m_raytrace_service;
+  /*!
+   * \brief Service for batch raytracing
+   */
+  rclcpp::Service<vdb_mapping_interfaces::srv::BatchRaytrace>::SharedPtr m_batch_raytrace_service;
   /*!
    * \brief Service for map section requests
    */
