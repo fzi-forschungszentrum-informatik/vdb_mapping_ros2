@@ -578,6 +578,7 @@ public:
   {
     geometry_msgs::msg::TransformStamped reference_tf;
     res->successes.resize(req->rays.size());
+    res->end_points.resize(req->rays.size());
     try
     {
       reference_tf =
@@ -591,8 +592,10 @@ public:
       RCLCPP_ERROR_STREAM(this->get_logger(), "Transform to map frame failed: " << ex.what());
       for (size_t i = 0; i < req->rays.size(); i++)
       {
-        res->successes[i] = false;
+        res->successes[i]  = false;
+        res->end_points[i] = geometry_msgs::msg::Point();
       }
+      return true;
     }
 
     Eigen::Matrix<double, 4, 4> m = tf2::transformToEigen(reference_tf).matrix();
@@ -621,10 +624,10 @@ public:
     for (size_t i = 0; i < end_points.size(); i++)
     {
       geometry_msgs::msg::Point p;
-      p.x = end_points[i].x();
-      p.y = end_points[i].y();
-      p.z = end_points[i].z();
-      res->end_points.push_back(p);
+      p.x                = end_points[i].x();
+      p.y                = end_points[i].y();
+      p.z                = end_points[i].z();
+      res->end_points[i] = p;
     }
 
     res->header.frame_id = m_map_frame;
