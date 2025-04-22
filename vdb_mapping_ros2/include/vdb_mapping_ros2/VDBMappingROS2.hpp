@@ -577,6 +577,8 @@ public:
     const std::shared_ptr<vdb_mapping_interfaces::srv::BatchRaytrace::Response> res)
   {
     geometry_msgs::msg::TransformStamped reference_tf;
+    res->header.frame_id = m_map_frame;
+    res->header.stamp    = req->header.stamp;
     res->successes.resize(req->rays.size());
     res->end_points.resize(req->rays.size());
     try
@@ -629,10 +631,6 @@ public:
       p.z                = end_points[i].z();
       res->end_points[i] = p;
     }
-
-    res->header.frame_id = m_map_frame;
-    res->header.stamp    = req->header.stamp;
-
     return true;
   }
 
