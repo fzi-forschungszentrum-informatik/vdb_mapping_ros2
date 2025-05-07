@@ -639,7 +639,7 @@ public:
     const std::shared_ptr<vdb_mapping_interfaces::srv::AddArtificialAreas::Request> req,
     const std::shared_ptr<vdb_mapping_interfaces::srv::AddArtificialAreas::Response> res)
   {
-    std::vector<std::vector<Eigen::Matrix<double, 4, 1> > > artificial_areas;
+    std::vector<std::vector<Eigen::Matrix<double, 4, 1>>> artificial_areas;
     if (req->artificial_areas.size() > 0)
     {
       geometry_msgs::msg::TransformStamped source_to_map_tf;
@@ -666,7 +666,7 @@ public:
 
       for (auto& artificial_area : req->artificial_areas)
       {
-        std::vector<Eigen::Matrix<double, 4, 1> > area;
+        std::vector<Eigen::Matrix<double, 4, 1>> area;
         for (auto& p : artificial_area.polygon.points)
         {
           area.push_back(transform * Eigen::Matrix<double, 4, 1>(p.x, p.y, p.z, 1.0));
@@ -814,7 +814,7 @@ private:
     if (m_apply_raw_sensor_data)
     {
       std::vector<std::string> source_ids;
-      this->declare_parameter<std::vector<std::string> >("sources", std::vector<std::string>());
+      this->declare_parameter<std::vector<std::string>>("sources", std::vector<std::string>());
       this->get_parameter("sources", source_ids);
 
       for (auto& source_id : source_ids)
@@ -882,8 +882,7 @@ private:
     using namespace std::placeholders;
     std::vector<std::string> source_ids;
     // Setting up remote sources
-    this->declare_parameter<std::vector<std::string> >("remote_sources",
-                                                       std::vector<std::string>());
+    this->declare_parameter<std::vector<std::string>>("remote_sources", std::vector<std::string>());
     this->get_parameter("remote_sources", source_ids);
 
     for (auto& source_id : source_ids)
