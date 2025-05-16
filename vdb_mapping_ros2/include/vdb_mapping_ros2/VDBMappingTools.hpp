@@ -189,6 +189,73 @@ public:
       }
     }
   }
+
+  static void createMappingOutput(const typename VDBMappingT::GridT::Ptr grid,
+                                  const std::string& frame_id,
+                                  visualization_msgs::msg::Marker& marker_msg,
+                                  double lower_z_limit   = 0.0,
+                                  double upper_z_limit   = 0.0,
+                                  const float resolution = 0.05)
+  {
+    sensor_msgs::msg::PointCloud2 cloud_msg;
+    nav_msgs::msg::OccupancyGrid occupancy_grid_msg;
+    createMappingOutput(grid,
+                        frame_id,
+                        marker_msg,
+                        cloud_msg,
+                        occupancy_grid_msg,
+                        true,
+                        false,
+                        false,
+                        lower_z_limit,
+                        upper_z_limit,
+                        resolution);
+  }
+  static void createMappingOutput(const typename VDBMappingT::GridT::Ptr grid,
+                                  const std::string& frame_id,
+                                  sensor_msgs::msg::PointCloud2& cloud_msg,
+                                  double lower_z_limit   = 0.0,
+                                  double upper_z_limit   = 0.0,
+                                  const float resolution = 0.05)
+  {
+    visualization_msgs::msg::Marker marker_msg;
+    nav_msgs::msg::OccupancyGrid occupancy_grid_msg;
+    createMappingOutput(grid,
+                        frame_id,
+                        marker_msg,
+                        cloud_msg,
+                        occupancy_grid_msg,
+                        false,
+                        true,
+                        false,
+                        lower_z_limit,
+                        upper_z_limit,
+                        resolution);
+  }
+  static void createMappingOutput(const typename VDBMappingT::GridT::Ptr grid,
+                                  const std::string& frame_id,
+                                  nav_msgs::msg::OccupancyGrid& occupancy_grid_msg,
+                                  double lower_z_limit             = 0.0,
+                                  double upper_z_limit             = 0.0,
+                                  const float resolution           = 0.05,
+                                  const int two_dim_proj_threshold = 5)
+  {
+    visualization_msgs::msg::Marker marker_msg;
+    sensor_msgs::msg::PointCloud2 cloud_msg;
+    createMappingOutput(grid,
+                        frame_id,
+                        marker_msg,
+                        cloud_msg,
+                        occupancy_grid_msg,
+                        false,
+                        false,
+                        true,
+                        lower_z_limit,
+                        upper_z_limit,
+                        resolution,
+                        two_dim_proj_threshold);
+  }
+
   /*!
    * \brief Calculates a height correlating color coding using HSV color space
    *
