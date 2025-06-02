@@ -2,6 +2,11 @@ VDB Mapping ROS2 Package
 ===
 DISCLAIMER: This library is still under development. Be warned that some interfaces will be changed and/or extended in the future.
 
+Currently supported new features:
+- Fast ray tracing during map creating
+- Remote mapping support (Exchange maps between different mapping instances)
+- Multi-threading for each sensor source
+
 The VDB Mapping ROS2 Package is a ROS2 wrapper around [VDB Mapping](https://github.com/fzi-forschungszentrum-informatik/vdb_mapping)
 
 ## Getting Started
@@ -59,6 +64,8 @@ Listed below are the general parameters to configure the basic behavior of vdb_m
 | ------------------    | ------- | ------------------ | -----------
 | map_frame             | string  | ' '                | Coordinate frame of the map
 | robot_frame           | string  | ' '                | Coordinate frame of the robot
+| fast_mode             | boolean | 'false'            | Enables faster raycasting at the cost
+modeling free and unknown space individually
 | max_range             | double  | 15.0               | Global maximum raycasting range (can also be set for each sensor source individually)
 | resolution            | double  | 0.05               | Map resolution
 | prob_hit              | double  | 0.7                | Probability update if a beam hits a voxel
@@ -68,6 +75,8 @@ Listed below are the general parameters to configure the basic behavior of vdb_m
 | map_save_dir          | string  | ' '                  | Storage location for saved maps
 | accumulate_updates    | boolean | false                  | Specifies whether the data of multiple sensor measurement should be accumulated before integrating it into the map.
 | accumulation_period   | double  | 1 | Specifies how long updates should be accumulated before integration
+| tf_lookup_timeout     | double  | 0.1 | Specifies how long the tf lookup should wait for
+available transforms
 | visualization_rate    | double  | 1                  | Specifies in which rate the visualization is published
 | publish_pointcloud    | boolean | true                  | Specifies whether the map should be published as pointcloud
 | publish_vis_marker    | boolean | true                  | Specifies whether the map should be published as visual marker 
