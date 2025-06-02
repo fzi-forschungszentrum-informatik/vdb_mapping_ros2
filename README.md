@@ -60,7 +60,7 @@ Listed below are the general parameters to configure the basic behavior of vdb_m
 | map_frame             | string  | ' '                | Coordinate frame of the map
 | robot_frame           | string  | ' '                | Coordinate frame of the robot
 | max_range             | double  | 15.0               | Global maximum raycasting range (can also be set for each sensor source individually)
-| resolution            | double  | 0.07               | Map resolution
+| resolution            | double  | 0.05               | Map resolution
 | prob_hit              | double  | 0.7                | Probability update if a beam hits a voxel
 | prob_miss             | double  | 0.4                | Probability update if a beam misses a voxel
 | prob_thres_min        | double  | 0.12               | Lower occupancy threshold of a voxel

@@ -760,7 +760,7 @@ private:
     this->get_parameter("fast_mode", m_config.fast_mode);
     this->declare_parameter<double>("accumulation_period", 1);
     this->get_parameter("accumulation_period", m_config.accumulation_period);
-    this->declare_parameter<double>("resolution", 0.1);
+    this->declare_parameter<double>("resolution", 0.05);
     this->get_parameter("resolution", m_resolution);
     m_vdb_map = std::make_shared<VDBMappingT>(m_resolution);
 
