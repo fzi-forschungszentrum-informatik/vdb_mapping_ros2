@@ -80,20 +80,15 @@ public:
     }
 
     std::vector<int> occ_voxel_projection_grid;
-    int occ_x_offset = 0;
-    int occ_y_offset = 0;
     if (create_occupancy_grid)
     {
       occupancy_grid_msg.info.height     = bbox.dim().y();
       occupancy_grid_msg.info.width      = bbox.dim().x();
       occupancy_grid_msg.info.resolution = resolution;
       occupancy_grid_msg.data.resize(occupancy_grid_msg.info.width * occupancy_grid_msg.info.height,
-                                     0);
+                                     -1);
       occ_voxel_projection_grid.resize(
         occupancy_grid_msg.info.width * occupancy_grid_msg.info.height, 0);
-
-      occ_x_offset = abs(bbox.min().x());
-      occ_y_offset = abs(bbox.min().y());
 
       geometry_msgs::msg::Pose origin_pose;
       origin_pose.position.x = bbox.min().x() * resolution;
@@ -109,8 +104,8 @@ public:
       {
         if (bbox.isInside(iter.getCoord()))
         {
-          int vdb_index_to_occ_index = (iter.getCoord().y() + occ_y_offset) * bbox.dim().x() +
-                                       (iter.getCoord().x() + occ_x_offset);
+          int vdb_index_to_occ_index = (iter.getCoord().y() - bbox.min().y()) * bbox.dim().x() +
+                                       (iter.getCoord().x() - bbox.min().x());
           occ_voxel_projection_grid[vdb_index_to_occ_index] += 1;
         }
       }
