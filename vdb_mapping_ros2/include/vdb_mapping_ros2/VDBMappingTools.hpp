@@ -171,19 +171,111 @@ public:
       {
         if (occ_voxel_projection_grid[i] > two_dim_proj_threshold)
         {
-          occupancy_grid_msg.data[i] = 100;
+          occ_voxel_projection_grid[i] = 100;
         }
         else if (occ_voxel_projection_grid[i] == 0)
         {
-          occupancy_grid_msg.data[i] = -1;
+          occ_voxel_projection_grid[i] = -1;
         }
         else
         {
-          occupancy_grid_msg.data[i] = 0;
+          occ_voxel_projection_grid[i] = 0;
+        }
+      }
+      smoothOccGrid(occupancy_grid_msg, occ_voxel_projection_grid);
+    }
+  }
+
+  static void smoothOccGrid(nav_msgs::msg::OccupancyGrid& occupancy_grid_msg,
+                            std::vector<int>& occ_voxel_projection_grid)
+  {
+    auto get_index = [&](int i, int j) -> float {
+      // Clamp
+      i = std::max(0, std::min((int)occupancy_grid_msg.info.height - 1, i));
+      j = std::max(0, std::min((int)occupancy_grid_msg.info.width - 1, j));
+      return i * occupancy_grid_msg.info.width + j;
+    };
+
+    for (int i = 0; i < occupancy_grid_msg.info.height; ++i)
+    {
+      for (int j = 0; j < occupancy_grid_msg.info.width; ++j)
+      {
+        int current_index = get_index(i, j);
+        if (occ_voxel_projection_grid[current_index] == -1)
+        {
+          std::vector<int> counts = {0, 0, 0};
+          for (int di = -1; di <= 1; ++di)
+          {
+            for (int dj = -1; dj <= 1; ++dj)
+            {
+              if (di == 0 && dj == 0)
+              {
+                continue;
+              }
+              int value = occ_voxel_projection_grid[get_index(i + di, j + dj)];
+              if (value == -1)
+              {
+                counts[0]++;
+              }
+              else if (value == 0)
+              {
+                counts[1]++;
+              }
+              else if (value == 100)
+              {
+                counts[2]++;
+              }
+            }
+          }
+          int most_count_index =
+            std::distance(counts.begin(), std::max_element(counts.begin(), counts.end()));
+          if (most_count_index == 0)
+          {
+            // occupancy_grid_msg.data[current_index] = -1;
+          }
+          else if (most_count_index == 1)
+          {
+            occupancy_grid_msg.data[current_index] = 0;
+          }
+          else if (most_count_index == 2)
+          {
+            occupancy_grid_msg.data[current_index] = 100;
+          }
+        }
+        else if (occ_voxel_projection_grid[current_index] == 100)
+        {
+          int count = 0;
+          for (int di = -1; di <= 1; ++di)
+          {
+            for (int dj = -1; dj <= 1; ++dj)
+            {
+              if (di == 0 && dj == 0)
+              {
+                continue;
+              }
+              if (occ_voxel_projection_grid[get_index(i + di, j + dj)] == 100)
+              {
+                count++;
+              }
+            }
+          }
+          if (count > 2)
+          {
+            occupancy_grid_msg.data[current_index] = occ_voxel_projection_grid[current_index];
+          }
+          else
+          {
+            occupancy_grid_msg.data[current_index] = 0;
+          }
+        }
+        else
+        {
+          occupancy_grid_msg.data[current_index] = occ_voxel_projection_grid[current_index];
         }
       }
     }
   }
+
 
   static void createMappingOutput(const typename VDBMappingT::GridT::Ptr grid,
                                   const std::string& frame_id,
