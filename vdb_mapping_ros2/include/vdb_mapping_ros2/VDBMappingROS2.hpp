@@ -67,6 +67,7 @@ struct RemoteSource
   rclcpp::Client<vdb_mapping_interfaces::srv::GetMapSection>::SharedPtr get_map_full_section_client;
   bool apply_remote_sections;
   bool apply_remote_full_sections;
+  bool active;
 };
 
 struct SensorSource
@@ -310,21 +311,30 @@ public:
     }
   }
 
-  void mapSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
+  void mapSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg,
+                          const std::shared_ptr<RemoteSource> remote_source)
   {
-    m_vdb_map->applyMapSectionUpdateGrid(
-      m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map),
-      m_smooth_remote_sections,
-      m_remote_section_smoothing_iterations);
+    if (remote_source->active)
+    {
+      std::cout << "im active and insert stuff" << std::endl;
+      m_vdb_map->applyMapSectionUpdateGrid(
+        m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map),
+        m_smooth_remote_sections,
+        m_remote_section_smoothing_iterations);
+    }
   }
 
   void
-  mapFullSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg)
+  mapFullSectionCallback(const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> update_msg,
+                         const std::shared_ptr<RemoteSource> remote_source)
   {
-    m_vdb_map->applyMapSectionGrid(
-      m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map),
-      m_smooth_remote_sections,
-      m_remote_section_smoothing_iterations);
+    if (remote_source->active)
+    {
+      m_vdb_map->applyMapSectionGrid(
+        m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map),
+        m_smooth_remote_sections,
+        m_remote_section_smoothing_iterations);
+    }
   }
 
   /*!
@@ -441,7 +451,7 @@ public:
 
     request->header       = req->header;
     request->bounding_box = req->bounding_box;
-    auto result = remote_source->second.get_map_section_client->async_send_request(request);
+    auto result = remote_source->second->get_map_section_client->async_send_request(request);
     if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
         rclcpp::FutureReturnCode::SUCCESS)
     {
@@ -492,7 +502,7 @@ public:
 
     request->header       = req->header;
     request->bounding_box = req->bounding_box;
-    auto result = remote_source->second.get_map_full_section_client->async_send_request(request);
+    auto result = remote_source->second->get_map_full_section_client->async_send_request(request);
     if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
         rclcpp::FutureReturnCode::SUCCESS)
     {
@@ -696,7 +706,30 @@ public:
     const std::shared_ptr<vdb_mapping_interfaces::srv::ToggleRemoteSource::Request> req,
     const std::shared_ptr<vdb_mapping_interfaces::srv::ToggleRemoteSource::Response> res)
   {
-    // TODO activate mapping
+    auto remote_source = m_remote_sources.find(req->remote_source);
+    if (remote_source == m_remote_sources.end())
+    {
+      std::stringstream ss;
+      ss << "Key " << req->remote_source << " not found. Available sources are: ";
+      for (auto& source : m_remote_sources)
+      {
+        ss << source.first << ", ";
+      }
+      RCLCPP_WARN(this->get_logger(), ss.str().c_str());
+      res->success = false;
+      return true;
+    }
+    remote_source->second->active = req->toggle;
+    if (remote_source->second->active)
+    {
+      std::cout << "Remote source " << req->remote_source << " set to active" << std::endl;
+    }
+    else
+    {
+      std::cout << "Remote source " << req->remote_source << " set to inactive" << std::endl;
+    }
+    res->success = true;
+    return true;
   }
 
   void visualizationTimerCallback() { publishMap(); }
@@ -899,33 +932,39 @@ private:
       this->declare_parameter<std::string>(source_id + ".namespace", "");
       this->get_parameter(source_id + ".namespace", remote_namespace);
 
-      RemoteSource remote_source;
+      auto remote_source = std::make_shared<RemoteSource>();
       this->declare_parameter<bool>(source_id + ".apply_remote_sections", false);
       this->get_parameter(source_id + ".apply_remote_sections",
-                          remote_source.apply_remote_sections);
+                          remote_source->apply_remote_sections);
       this->declare_parameter<bool>(source_id + ".apply_remote_full_sections", false);
       this->get_parameter(source_id + ".apply_remote_full_sections",
-                          remote_source.apply_remote_full_sections);
-      if (remote_source.apply_remote_sections)
+                          remote_source->apply_remote_full_sections);
+      if (remote_source->apply_remote_sections)
       {
-        remote_source.map_section_sub =
+        remote_source->map_section_sub =
           this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
             remote_namespace + "/vdb_map_sections",
             rclcpp::QoS(10).durability_volatile().best_effort(),
-            std::bind(&VDBMappingROS2::mapSectionCallback, this, _1));
+            [&, remote_source](
+              const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> cloud_msg) {
+              mapSectionCallback(cloud_msg, remote_source);
+            });
       }
-      if (remote_source.apply_remote_full_sections)
+      if (remote_source->apply_remote_full_sections)
       {
-        remote_source.map_full_section_sub =
+        remote_source->map_full_section_sub =
           this->create_subscription<vdb_mapping_interfaces::msg::UpdateGrid>(
             remote_namespace + "/vdb_map_full_sections",
             rclcpp::QoS(10).durability_volatile().best_effort(),
-            std::bind(&VDBMappingROS2::mapFullSectionCallback, this, _1));
+            [&, remote_source](
+              const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> cloud_msg) {
+              mapFullSectionCallback(cloud_msg, remote_source);
+            });
       }
-      remote_source.get_map_section_client =
+      remote_source->get_map_section_client =
         this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
                                                                         "/get_map_section");
-      remote_source.get_map_full_section_client =
+      remote_source->get_map_full_section_client =
         this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
                                                                         "/get_map_full_section");
       m_remote_sources.insert(std::make_pair(source_id, remote_source));
@@ -1283,7 +1322,7 @@ private:
   /*!
    * \brief Map of remote mapping source connections
    */
-  std::map<std::string, RemoteSource> m_remote_sources;
+  std::map<std::string, std::shared_ptr<RemoteSource>> m_remote_sources;
   /*!
    * \brief Specifies whether the remote sections should be smoothed before integration
    */
