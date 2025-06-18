@@ -316,7 +316,6 @@ public:
   {
     if (remote_source->active)
     {
-      std::cout << "im active and insert stuff" << std::endl;
       m_vdb_map->applyMapSectionUpdateGrid(
         m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map),
         m_smooth_remote_sections,
