@@ -932,6 +932,7 @@ private:
       this->declare_parameter<std::string>(source_id + ".namespace", "");
       this->get_parameter(source_id + ".namespace", remote_namespace);
 
+
       auto remote_source = std::make_shared<RemoteSource>();
       this->declare_parameter<bool>(source_id + ".apply_remote_sections", false);
       this->get_parameter(source_id + ".apply_remote_sections",
@@ -939,6 +940,10 @@ private:
       this->declare_parameter<bool>(source_id + ".apply_remote_full_sections", false);
       this->get_parameter(source_id + ".apply_remote_full_sections",
                           remote_source->apply_remote_full_sections);
+
+      this->declare_parameter<bool>(source_id + ".autostart", true);
+      this->get_parameter(source_id + ".autostart", remote_source->active);
+
       if (remote_source->apply_remote_sections)
       {
         remote_source->map_section_sub =
