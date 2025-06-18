@@ -49,6 +49,7 @@
 #include <vdb_mapping_interfaces/srv/load_map_from_pcd.hpp>
 #include <vdb_mapping_interfaces/srv/raytrace.hpp>
 #include <vdb_mapping_interfaces/srv/remove_points_from_grid.hpp>
+#include <vdb_mapping_interfaces/srv/toggle_remote_source.hpp>
 #include <vdb_mapping_interfaces/srv/trigger_map_section_update.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
@@ -691,6 +692,13 @@ public:
     return true;
   }
 
+  bool toggleRemoteSource(
+    const std::shared_ptr<vdb_mapping_interfaces::srv::ToggleRemoteSource::Request> req,
+    const std::shared_ptr<vdb_mapping_interfaces::srv::ToggleRemoteSource::Response> res)
+  {
+    // TODO activate mapping
+  }
+
   void visualizationTimerCallback() { publishMap(); }
 
   void sectionTimerCallback()
@@ -1007,6 +1015,10 @@ private:
     m_remove_artificial_areas_service = this->create_service<std_srvs::srv::Trigger>(
       "~/remove_artificial_areas",
       std::bind(&VDBMappingROS2::removeArtificialAreasCallback, this, _1, _2));
+
+    m_toggle_remote_source_service =
+      this->create_service<vdb_mapping_interfaces::srv::ToggleRemoteSource>(
+        "~/toggle_remote_source", std::bind(&VDBMappingROS2::toggleRemoteSource, this, _1, _2));
   }
   void setUpPublishers()
   {
@@ -1213,6 +1225,9 @@ private:
    * \brief Service for removing artificial areas from the grid.
    */
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr m_remove_artificial_areas_service;
+
+  rclcpp::Service<vdb_mapping_interfaces::srv::ToggleRemoteSource>::SharedPtr
+    m_toggle_remote_source_service;
   /*!
    * \brief Transformation buffer
    */

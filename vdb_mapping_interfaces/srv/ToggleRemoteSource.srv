@@ -1,0 +1,5 @@
+string remote_source
+bool toggle
+---
+bool success
+

@@ -27,6 +27,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/Raytrace.srv"
   "srv/RemovePointsFromGrid.srv"
   "srv/TriggerMapSectionUpdate.srv"
+  "srv/ToggleRemoteSource.srv"
   DEPENDENCIES
     geometry_msgs
     nav_msgs
