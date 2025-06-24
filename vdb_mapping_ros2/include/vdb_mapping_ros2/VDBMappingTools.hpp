@@ -196,9 +196,9 @@ public:
       return i * occupancy_grid_msg.info.width + j;
     };
 
-    for (int i = 0; i < occupancy_grid_msg.info.height; ++i)
+    for (size_t i = 0; i < occupancy_grid_msg.info.height; ++i)
     {
-      for (int j = 0; j < occupancy_grid_msg.info.width; ++j)
+      for (size_t j = 0; j < occupancy_grid_msg.info.width; ++j)
       {
         int current_index = get_index(i, j);
         if (occ_voxel_projection_grid[current_index] == -1)
