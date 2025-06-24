@@ -316,10 +316,39 @@ public:
   {
     if (remote_source->active)
     {
-      m_vdb_map->applyMapSectionUpdateGrid(
-        m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map),
-        m_smooth_remote_sections,
-        m_remote_section_smoothing_iterations);
+      if (m_map_frame == update_msg->header.frame_id)
+      {
+        m_vdb_map->applyMapSectionUpdateGrid(
+          m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map),
+          m_smooth_remote_sections,
+          m_remote_section_smoothing_iterations);
+      }
+      else
+      {
+        geometry_msgs::msg::TransformStamped transform;
+        try
+        {
+          transform =
+            m_tf_buffer->lookupTransform(m_map_frame,
+                                         update_msg->header.frame_id,
+                                         update_msg->header.stamp,
+                                         rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
+        }
+        catch (tf2::TransformException& ex)
+        {
+          RCLCPP_ERROR(this->get_logger(),
+                       "Could not transform %s to %s: %s",
+                       m_map_frame.c_str(),
+                       update_msg->header.frame_id.c_str(),
+                       ex.what());
+          return;
+        }
+        m_vdb_map->transformAndApplyMapSectionUpdateGrid(
+          m_vdb_map->template byteArrayToGrid<typename VDBMappingT::UpdateGridT>(update_msg->map),
+          tf2::transformToEigen(transform).matrix(),
+          m_smooth_remote_sections,
+          m_remote_section_smoothing_iterations);
+      }
     }
   }
 
@@ -329,10 +358,39 @@ public:
   {
     if (remote_source->active)
     {
-      m_vdb_map->applyMapSectionGrid(
-        m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map),
-        m_smooth_remote_sections,
-        m_remote_section_smoothing_iterations);
+      if (m_map_frame == update_msg->header.frame_id)
+      {
+        m_vdb_map->applyMapSectionGrid(
+          m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map),
+          m_smooth_remote_sections,
+          m_remote_section_smoothing_iterations);
+      }
+      else
+      {
+        geometry_msgs::msg::TransformStamped transform;
+        try
+        {
+          transform =
+            m_tf_buffer->lookupTransform(m_map_frame,
+                                         update_msg->header.frame_id,
+                                         update_msg->header.stamp,
+                                         rclcpp::Duration::from_seconds(m_tf_lookup_timeout));
+        }
+        catch (tf2::TransformException& ex)
+        {
+          RCLCPP_ERROR(this->get_logger(),
+                       "Could not transform %s to %s: %s",
+                       m_map_frame.c_str(),
+                       update_msg->header.frame_id.c_str(),
+                       ex.what());
+          return;
+        }
+        m_vdb_map->transformAndApplyMapSectionGrid(
+          m_vdb_map->template byteArrayToGrid<typename VDBMappingT::GridT>(update_msg->map),
+          tf2::transformToEigen(transform).matrix(),
+          m_smooth_remote_sections,
+          m_remote_section_smoothing_iterations);
+      }
     }
   }
 
