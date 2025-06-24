@@ -202,7 +202,7 @@ public:
     catch (tf2::TransformException& ex)
     {
       RCLCPP_ERROR(this->get_logger(),
-                   "Could not transform %s to %s: %s",
+                   "MapToSensor: Could not transform %s to %s: %s",
                    m_map_frame.c_str(),
                    sensor_frame.c_str(),
                    ex.what());
@@ -223,7 +223,7 @@ public:
       catch (tf2::TransformException& ex)
       {
         RCLCPP_ERROR(this->get_logger(),
-                     "Could not transform %s to %s: %s",
+                     "MapToMessage: Could not transform %s to %s: %s",
                      m_map_frame.c_str(),
                      cloud_msg->header.frame_id.c_str(),
                      ex.what());
@@ -337,7 +337,7 @@ public:
         catch (tf2::TransformException& ex)
         {
           RCLCPP_ERROR(this->get_logger(),
-                       "Could not transform %s to %s: %s",
+                       "MapSection: Could not transform %s to %s: %s",
                        m_map_frame.c_str(),
                        update_msg->header.frame_id.c_str(),
                        ex.what());
@@ -379,7 +379,7 @@ public:
         catch (tf2::TransformException& ex)
         {
           RCLCPP_ERROR(this->get_logger(),
-                       "Could not transform %s to %s: %s",
+                       "MapFullSection: Could not transform %s to %s: %s",
                        m_map_frame.c_str(),
                        update_msg->header.frame_id.c_str(),
                        ex.what());
@@ -455,7 +455,7 @@ public:
     catch (tf2::TransformException& ex)
     {
       RCLCPP_ERROR(this->get_logger(),
-                   "Could not transform %s to %s: %s",
+                   "GetMapSection: Could not transform %s to %s: %s",
                    m_map_frame.c_str(),
                    req->header.frame_id.c_str(),
                    ex.what());
@@ -659,7 +659,8 @@ public:
     }
     catch (tf2::TransformException& ex)
     {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "Transform to map frame failed: " << ex.what());
+      RCLCPP_ERROR_STREAM(this->get_logger(),
+                          "BatchRaytrace: Transform to map frame failed: " << ex.what());
       for (size_t i = 0; i < req->rays.size(); i++)
       {
         res->successes[i]  = false;
@@ -722,7 +723,7 @@ public:
       catch (tf2::TransformException& ex)
       {
         RCLCPP_ERROR(this->get_logger(),
-                     "Could not transform %s to %s: %s",
+                     "ArtificialArea: Could not transform %s to %s: %s",
                      m_map_frame.c_str(),
                      req->artificial_areas[0].header.frame_id.c_str(),
                      ex.what());
@@ -806,7 +807,7 @@ public:
     catch (tf2::TransformException& ex)
     {
       RCLCPP_ERROR(this->get_logger(),
-                   "Could not transform %s to %s: %s",
+                   "SectionTimer: Could not transform %s to %s: %s",
                    m_map_frame.c_str(),
                    m_section_update_frame.c_str(),
                    ex.what());
@@ -835,7 +836,7 @@ public:
     catch (tf2::TransformException& ex)
     {
       RCLCPP_ERROR(this->get_logger(),
-                   "Could not transform %s to %s: %s",
+                   "FullSectionTimer: Could not transform %s to %s: %s",
                    m_map_frame.c_str(),
                    m_section_update_frame.c_str(),
                    ex.what());
