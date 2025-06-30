@@ -100,6 +100,13 @@ public:
 
     for (typename VDBMappingT::GridT::ValueOnCIter iter = grid->cbeginValueOn(); iter; ++iter)
     {
+      openvdb::Vec3d world_coord = grid->indexToWorld(iter.getCoord());
+
+      if (world_coord.z() < min_z || world_coord.z() > max_z)
+      {
+        continue;
+      }
+
       if (create_occupancy_grid)
       {
         if (bbox.isInside(iter.getCoord()))
@@ -108,13 +115,6 @@ public:
                                        (iter.getCoord().x() - bbox.min().x());
           occ_voxel_projection_grid[vdb_index_to_occ_index] += 1;
         }
-      }
-
-      openvdb::Vec3d world_coord = grid->indexToWorld(iter.getCoord());
-
-      if (world_coord.z() < min_z || world_coord.z() > max_z)
-      {
-        continue;
       }
 
       if (create_marker)
