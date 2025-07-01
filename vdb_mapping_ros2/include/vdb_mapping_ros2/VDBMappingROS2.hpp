@@ -277,19 +277,38 @@ public:
     visualization_msgs::msg::Marker visualization_marker_msg;
     sensor_msgs::msg::PointCloud2 cloud_msg;
     nav_msgs::msg::OccupancyGrid occupancy_grid_msg;
+
+    geometry_msgs::msg::TransformStamped map_to_robot_tf;
+    try
+    {
+      map_to_robot_tf =
+        m_tf_buffer->lookupTransform(m_map_frame, m_robot_frame, tf2::TimePointZero);
+    }
+    catch (tf2::TransformException& ex)
+    {
+      RCLCPP_ERROR(this->get_logger(),
+                   "VisMapToRobot: Could not transform %s to %s: %s",
+                   m_map_frame.c_str(),
+                   m_robot_frame.c_str(),
+                   ex.what());
+      return;
+    }
+
+
     std::shared_lock map_lock(*m_vdb_map->getMapMutex());
-    VDBMappingTools<VDBMappingT>::createMappingOutput(m_vdb_map->getGrid(),
-                                                      m_map_frame,
-                                                      visualization_marker_msg,
-                                                      cloud_msg,
-                                                      occupancy_grid_msg,
-                                                      m_publish_vis_marker,
-                                                      m_publish_pointcloud,
-                                                      m_publish_occupancy_grid,
-                                                      m_lower_visualization_z_limit,
-                                                      m_upper_visualization_z_limit,
-                                                      m_resolution,
-                                                      m_two_dim_projection_threshold);
+    VDBMappingTools<VDBMappingT>::createMappingOutput(
+      m_vdb_map->getGrid(),
+      m_map_frame,
+      visualization_marker_msg,
+      cloud_msg,
+      occupancy_grid_msg,
+      m_publish_vis_marker,
+      m_publish_pointcloud,
+      m_publish_occupancy_grid,
+      map_to_robot_tf.transform.translation.z + m_lower_visualization_z_limit,
+      map_to_robot_tf.transform.translation.z + m_upper_visualization_z_limit,
+      m_resolution,
+      m_two_dim_projection_threshold);
     map_lock.unlock();
     if (publish_vis_marker)
     {
