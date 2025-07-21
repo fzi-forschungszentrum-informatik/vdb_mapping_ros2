@@ -3,7 +3,7 @@
     # Basic setup
     map_frame: map
     robot_frame: base_link
-    max_range: 10.0
+    max_range: 100.0
     resolution: 0.05
     prob_hit: 0.99
     prob_miss: 0.1
