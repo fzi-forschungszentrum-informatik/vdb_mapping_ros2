@@ -1005,6 +1005,8 @@ private:
 
     for (auto& source_id : source_ids)
     {
+      RCLCPP_INFO_STREAM(this->get_logger(), "Setting up remote source: " << source_id);
+
       std::string remote_namespace;
       this->declare_parameter<std::string>(source_id + ".namespace", "");
       this->get_parameter(source_id + ".namespace", remote_namespace);
@@ -1021,6 +1023,7 @@ private:
       this->declare_parameter<bool>(source_id + ".autostart", true);
       this->get_parameter(source_id + ".autostart", remote_source->active);
 
+
       if (remote_source->apply_remote_sections)
       {
         remote_source->map_section_sub =
@@ -1031,6 +1034,8 @@ private:
               const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> cloud_msg) {
               mapSectionCallback(cloud_msg, remote_source);
             });
+        RCLCPP_INFO_STREAM(this->get_logger(),
+                           "Subscribing to Section: " << remote_namespace + "/vdb_map_sections");
       }
       if (remote_source->apply_remote_full_sections)
       {
@@ -1042,6 +1047,9 @@ private:
               const std::shared_ptr<vdb_mapping_interfaces::msg::UpdateGrid> cloud_msg) {
               mapFullSectionCallback(cloud_msg, remote_source);
             });
+        RCLCPP_INFO_STREAM(this->get_logger(),
+                           "Subscribing to Full Section: " << remote_namespace +
+                                                                "/vdb_map_full_sections");
       }
       remote_source->get_map_section_client =
         this->create_client<vdb_mapping_interfaces::srv::GetMapSection>(remote_namespace +
