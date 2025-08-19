@@ -22,7 +22,7 @@ Instead you have to use [colcon build](https://docs.ros.org/en/foxy/Tutorials/Co
 
 ``` bash
 # source global ros
-source /opt/ros/<your_ros_version>/setup.bash
+source /opt/ros/$ROS_DISTRO/setup.bash
 
 # create a catkin workspace
 mkdir -p ~/colcon_ws/src && cd ~/colcon_ws/src
